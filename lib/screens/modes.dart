@@ -19,7 +19,7 @@ class ModesScreen extends StatelessWidget {
             icon: Icons.school_outlined,
             label: 'Reading',
           ),
-          _ModeTile(color: modeColor, icon: Icons.sunny, label: 'Evening'),
+          _ModeTile(color: modeColor, icon: Icons.sunny_snowing, label: 'Evening'),
           _ModeTile(color: modeColor, icon: Icons.sunny, label: 'Morning'),
         ],
       ),
