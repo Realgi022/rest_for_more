@@ -5,6 +5,7 @@ import 'screens/modes.dart';
 import 'screens/settings.dart';
 import 'screens/today.dart';
 import 'theme/app_theme.dart';
+import 'theme/theme_controller.dart';
 
 final GoRouter router = GoRouter(
   initialLocation: '/',
@@ -53,7 +54,10 @@ final GoRouter router = GoRouter(
   ],
 );
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await themeController.load();
+
   runApp(const MyApp());
 }
 
@@ -63,10 +67,17 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      routerConfig: router,
-      theme: appTheme,
-      debugShowCheckedModeBanner: false,
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeController,
+      builder: (context, themeMode, child) {
+        return MaterialApp.router(
+          routerConfig: router,
+          theme: appTheme,
+          darkTheme: appDarkTheme,
+          themeMode: themeMode,
+          debugShowCheckedModeBanner: false,
+        );
+      },
     );
   }
 }
