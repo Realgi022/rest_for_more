@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'screens/modes.dart';
+import 'screens/settings.dart';
+import 'screens/today.dart';
+
 final GoRouter router = GoRouter(
   initialLocation: '/',
   routes: [
@@ -20,7 +24,10 @@ final GoRouter router = GoRouter(
       branches: [
         StatefulShellBranch(
           routes: [
-            GoRoute(path: '/', builder: (context, state) => const MyHomePage()),
+            GoRoute(
+              path: '/',
+              builder: (context, state) => const TodayScreen(),
+            ),
           ],
         ),
 
@@ -28,7 +35,7 @@ final GoRouter router = GoRouter(
           routes: [
             GoRoute(
               path: '/modes',
-              builder: (context, state) => const ModesPage(),
+              builder: (context, state) => const ModesScreen(),
             ),
           ],
         ),
@@ -37,7 +44,7 @@ final GoRouter router = GoRouter(
           routes: [
             GoRoute(
               path: '/settings',
-              builder: (context, state) => const SettingsPage(),
+              builder: (context, state) => const SettingsScreen(),
             ),
           ],
         ),
@@ -141,16 +148,25 @@ ThemeData appTheme = ThemeData(
     ),
   ),
 
-  bottomNavigationBarTheme: BottomNavigationBarThemeData(
+  navigationBarTheme: NavigationBarThemeData(
     backgroundColor: AppColors.surface,
-    selectedItemColor: AppColors.brand,
-    unselectedItemColor: AppColors.brandTint,
-    selectedLabelStyle: GoogleFonts.montserrat(
-      fontSize: 12,
-      fontWeight: FontWeight.w600,
-    ),
-    unselectedLabelStyle: GoogleFonts.montserrat(fontSize: 12),
-    elevation: 0,
+    indicatorColor: AppColors.surfaceMuted,
+    labelTextStyle: WidgetStateProperty.resolveWith((states) {
+      final isSelected = states.contains(WidgetState.selected);
+
+      return GoogleFonts.montserrat(
+        fontSize: 12,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+        color: isSelected ? AppColors.brand : AppColors.brandTint,
+      );
+    }),
+    iconTheme: WidgetStateProperty.resolveWith((states) {
+      final isSelected = states.contains(WidgetState.selected);
+
+      return IconThemeData(
+        color: isSelected ? AppColors.brand : AppColors.brandTint,
+      );
+    }),
   ),
 
   appBarTheme: AppBarTheme(
@@ -202,20 +218,23 @@ class MainScaffold extends StatelessWidget {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: navigationShell,
 
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Theme.of(context).bottomAppBarTheme.color,
-        currentIndex: navigationShell.currentIndex,
-        onTap: _onTap,
-        items: const [
-          BottomNavigationBarItem(
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: navigationShell.currentIndex,
+        onDestinationSelected: _onTap,
+        destinations: const [
+          NavigationDestination(
             icon: Icon(Icons.wb_sunny_outlined),
+            selectedIcon: Icon(Icons.wb_sunny),
             label: 'Today',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.insights),
-            label: 'Modes'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
+          NavigationDestination(
+            icon: Icon(Icons.insights_outlined),
+            selectedIcon: Icon(Icons.insights),
+            label: 'Modes',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
             label: 'Settings',
           ),
         ],
@@ -288,115 +307,6 @@ class _SwipePageContainerState extends State<SwipePageContainer> {
       },
 
       children: widget.children,
-    );
-  }
-}
-
-class MyHomePage extends StatelessWidget {
-  const MyHomePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text('Today', style: Theme.of(context).textTheme.headlineMedium),
-    );
-  }
-}
-
-class ModesPage extends StatelessWidget {
-  const ModesPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        spacing: 10,
-        children: [
-          Container(
-            padding: EdgeInsets.all(10),
-            height: 50,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.secondary.withOpacity(0.6),
-              borderRadius: BorderRadius.all(Radius.circular(10)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(Icons.work_outline),
-                Text('Focus'),
-                Icon(Icons.keyboard_arrow_right),
-              ],
-            ),
-          ),
-          Container(
-            padding: EdgeInsets.all(10),
-            height: 50,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.secondary.withOpacity(0.6),
-              borderRadius: BorderRadius.all(Radius.circular(10)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(Icons.school_outlined),
-                Text('Reading'),
-                Icon(Icons.keyboard_arrow_right),
-              ],
-            ),
-          ),
-          Container(
-            padding: EdgeInsets.all(10),
-            height: 50,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.secondary.withOpacity(0.6),
-              borderRadius: BorderRadius.all(Radius.circular(10)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(Icons.sunny),
-                Text('Evening'),
-                Icon(Icons.keyboard_arrow_right),
-              ],
-            ),
-          ),
-          Container(
-            padding: EdgeInsets.all(10),
-            height: 50,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.secondary.withOpacity(0.6),
-              borderRadius: BorderRadius.all(Radius.circular(10)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(Icons.sunny),
-                Text('Morning'),
-                Icon(Icons.keyboard_arrow_right),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-
-        ],
-      ),
     );
   }
 }
