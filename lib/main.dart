@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rest_for_more/screens/modes/focus.dart';
 
 import 'screens/modes.dart';
 import 'screens/settings.dart';
 import 'screens/today.dart';
+
 import 'theme/app_theme.dart';
+
+import 'services/notification_service.dart';
 
 final GoRouter router = GoRouter(
   initialLocation: '/',
@@ -36,6 +40,12 @@ final GoRouter router = GoRouter(
             GoRoute(
               path: '/modes',
               builder: (context, state) => const ModesScreen(),
+              routes: [
+                GoRoute(
+                  path: 'focus',
+                  builder: ((context, state) => const FocusScreen()),
+                ),
+              ],
             ),
           ],
         ),
@@ -53,7 +63,9 @@ final GoRouter router = GoRouter(
   ],
 );
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.initialize();
   runApp(const MyApp());
 }
 
@@ -86,6 +98,11 @@ class MainScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        centerTitle: true,
+        title: Text('Rest For More'),
+      ),
+
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: navigationShell,
 
