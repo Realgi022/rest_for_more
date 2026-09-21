@@ -12,14 +12,11 @@ class ModesScreen extends StatelessWidget {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.gutter),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Modes',
-              style: theme.textTheme.headlineMedium,
-            ),
+            Text('Modes', style: theme.textTheme.headlineMedium),
 
             const SizedBox(height: 24),
 
@@ -89,14 +86,10 @@ class _ModeTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: theme.colorScheme.secondary.withValues(
-            alpha: 0.16,
-          ),
+          color: theme.colorScheme.secondary.withValues(alpha: 0.16),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: theme.colorScheme.onSurface.withValues(
-              alpha: 0.10,
-            ),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
           ),
         ),
         child: Row(
@@ -105,15 +98,10 @@ class _ModeTile extends StatelessWidget {
               height: 46,
               width: 46,
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(
-                  alpha: 0.18,
-                ),
+                color: theme.colorScheme.primary.withValues(alpha: 0.18),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                icon,
-                color: theme.colorScheme.primary,
-              ),
+              child: Icon(icon, color: theme.colorScheme.primary),
             ),
 
             const SizedBox(width: 16),
@@ -122,17 +110,11 @@ class _ModeTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    label,
-                    style: theme.textTheme.titleMedium,
-                  ),
+                  Text(label, style: theme.textTheme.titleMedium),
 
                   const SizedBox(height: 4),
 
-                  Text(
-                    description,
-                    style: theme.textTheme.bodySmall,
-                  ),
+                  Text(description, style: theme.textTheme.bodySmall),
                 ],
               ),
             ),
@@ -141,9 +123,7 @@ class _ModeTile extends StatelessWidget {
 
             Icon(
               Icons.keyboard_arrow_right,
-              color: theme.colorScheme.onSurface.withValues(
-                alpha: 0.6,
-              ),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ],
         ),

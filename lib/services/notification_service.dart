@@ -66,7 +66,7 @@ class NotificationService {
     await _notifications.show(
       id: 1001,
       title: 'Focus timer',
-      body: 'Timer',
+      body: 'Timer ${_formatTime(duration)}',
       notificationDetails: NotificationDetails(android: androidDetails),
     );
   }
