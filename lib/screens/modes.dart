@@ -16,11 +16,11 @@ class ModesScreen extends StatelessWidget {
           _ModeTile(color: modeColor, icon: Icons.work_outline, label: 'Focus'),
           _ModeTile(
             color: modeColor,
-            icon: Icons.school_outlined,
+            icon: Icons.menu_book_outlined,
             label: 'Reading',
           ),
-          _ModeTile(color: modeColor, icon: Icons.sunny_snowing, label: 'Evening'),
-          _ModeTile(color: modeColor, icon: Icons.sunny, label: 'Morning'),
+          _ModeTile(color: modeColor, icon: Icons.wb_twilight_outlined, label: 'Evening'),
+          _ModeTile(color: modeColor, icon: Icons.wb_sunny_outlined, label: 'Morning'),
         ],
       ),
     );
