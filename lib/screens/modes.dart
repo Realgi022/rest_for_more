@@ -7,35 +7,47 @@ class ModesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final modeColor = Theme.of(context).colorScheme.secondary
         .withValues(alpha: 0.6);
 
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.gutter),
-      child: Center(
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.gutter),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          spacing: 10,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _ModeTile(
-              color: modeColor,
-              icon: Icons.work_outline,
-              label: 'Focus',
-            ),
-            _ModeTile(
-              color: modeColor,
-              icon: Icons.school_outlined,
-              label: 'Reading',
-            ),
-            _ModeTile(
-              color: modeColor,
-              icon: Icons.wb_twilight_rounded,
-              label: 'Evening',
-            ),
-            _ModeTile(
-              color: modeColor,
-              icon: Icons.wb_sunny_outlined,
-              label: 'Morning',
+            Text('Modes', style: theme.textTheme.headlineMedium),
+            const SizedBox(height: 24),
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  spacing: 10,
+                  children: [
+              _ModeTile(
+                color: modeColor,
+                icon: Icons.work_outline,
+                label: 'Focus',
+              ),
+              _ModeTile(
+                color: modeColor,
+                icon: Icons.school_outlined,
+                label: 'Reading',
+              ),
+              _ModeTile(
+                color: modeColor,
+                icon: Icons.wb_twilight_rounded,
+                label: 'Evening',
+              ),
+              _ModeTile(
+                color: modeColor,
+                icon: Icons.wb_sunny_outlined,
+                label: 'Morning',
+              ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
