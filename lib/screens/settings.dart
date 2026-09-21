@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_spacing.dart';
 import '../theme/theme_controller.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -11,7 +12,7 @@ class SettingsScreen extends StatelessWidget {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.gutter),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

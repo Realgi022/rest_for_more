@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_spacing.dart';
+
 class ModesScreen extends StatelessWidget {
   const ModesScreen({super.key});
 
@@ -8,20 +10,35 @@ class ModesScreen extends StatelessWidget {
     final modeColor = Theme.of(context).colorScheme.secondary
         .withValues(alpha: 0.6);
 
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        spacing: 10,
-        children: [
-          _ModeTile(color: modeColor, icon: Icons.work_outline, label: 'Focus'),
-          _ModeTile(
-            color: modeColor,
-            icon: Icons.school_outlined,
-            label: 'Reading',
-          ),
-          _ModeTile(color: modeColor, icon: Icons.wb_twilight_rounded, label: 'Evening'),
-          _ModeTile(color: modeColor, icon: Icons.sunny, label: 'Morning'),
-        ],
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.gutter),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          spacing: 10,
+          children: [
+            _ModeTile(
+              color: modeColor,
+              icon: Icons.work_outline,
+              label: 'Focus',
+            ),
+            _ModeTile(
+              color: modeColor,
+              icon: Icons.school_outlined,
+              label: 'Reading',
+            ),
+            _ModeTile(
+              color: modeColor,
+              icon: Icons.wb_twilight_rounded,
+              label: 'Evening',
+            ),
+            _ModeTile(
+              color: modeColor,
+              icon: Icons.wb_sunny_outlined,
+              label: 'Morning',
+            ),
+          ],
+        ),
       ),
     );
   }
