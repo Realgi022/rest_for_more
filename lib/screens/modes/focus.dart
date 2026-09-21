@@ -1,118 +1,33 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../services/notification_service.dart';
+import 'package:go_router/go_router.dart';
+import '../../services/timer_service.dart';
 
-class FocusScreen extends StatefulWidget {
+class FocusScreen extends StatelessWidget {
   const FocusScreen({super.key});
 
-  @override
-  State<FocusScreen> createState() => _FocusScreenState();
-}
+  String formatTime(Duration duration) {
+    final hours = duration.inHours;
 
-class _FocusScreenState extends State<FocusScreen> {
-  int selectedMinutes = 20;
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
 
-  Duration remaining = Duration.zero;
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
 
-  Timer? _timer;
-  DateTime? _endTime;
-
-  bool isRunning = false;
-  bool isPaused = false;
-
-  void startTimer() {
-    remaining = Duration(minutes: selectedMinutes);
-    _startCountdown();
-  }
-
-  void _startCountdown() {
-    _endTime = DateTime.now().add(remaining);
-
-    setState(() {
-      isRunning = true;
-      isPaused = false;
-    });
-
-    NotificationService.showTimerNotification(remaining);
-
-    _timer?.cancel();
-
-    _timer = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) {
-        final end = _endTime;
-
-        if (end == null) return;
-
-        final difference = end.difference(DateTime.now());
-
-        if (difference <= Duration.zero) {
-          finishTimer();
-          return;
-        }
-
-        setState(() {
-          remaining = difference;
-        });
-      },
-    );
-  }
-
-  void pauseTimer() {
-    if (_endTime != null) {
-      remaining = _endTime!.difference(DateTime.now());
+    if (hours > 0) {
+      return '$hours:$minutes:$seconds';
     }
 
-    _timer?.cancel();
-    _endTime = null;
-
-    NotificationService.cancelTimerNotification();
-
-    setState(() {
-      isRunning = false;
-      isPaused = true;
-    });
+    return '$minutes:$seconds';
   }
 
-  void resumeTimer() {
-    _startCountdown();
-  }
+  Future<void> confirmStop(BuildContext context) async {
+    final timer = FocusTimerService.instance;
 
-  void finishTimer() {
-    _timer?.cancel();
-    _endTime = null;
-
-    NotificationService.cancelTimerNotification();
-
-    setState(() {
-      remaining = Duration.zero;
-      isRunning = false;
-      isPaused = false;
-    });
-  }
-
-  void stopTimer() {
-    _timer?.cancel();
-    _endTime = null;
-
-    NotificationService.cancelTimerNotification();
-
-    setState(() {
-      remaining = Duration.zero;
-      isRunning = false;
-      isPaused = false;
-    });
-  }
-
-  Future<void> confirmStop() async {
     final shouldStop = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Stop focus mode?'),
-          content: const Text(
-            'Your current timer will be cancelled.',
-          ),
+          content: const Text('Your current timer will be cancelled.'),
           actions: [
             TextButton(
               onPressed: () {
@@ -132,117 +47,259 @@ class _FocusScreenState extends State<FocusScreen> {
     );
 
     if (shouldStop == true) {
-      stopTimer();
+      timer.stopTimer();
     }
-  }
-
-  String formatTime(Duration duration) {
-    final hours = duration.inHours;
-
-    final minutes =
-        duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-
-    final seconds =
-        duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-
-    if (hours > 0) {
-      return '$hours:$minutes:$seconds';
-    }
-
-    return '$minutes:$seconds';
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final timerStarted = isRunning || isPaused;
+    final theme = Theme.of(context);
+    final timer = FocusTimerService.instance;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Focus'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (!timerStarted) ...[
-              Text(
-                '$selectedMinutes minutes',
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+    return ListenableBuilder(
+      listenable: timer,
+      builder: (context, child) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        context.go('/modes');
+                      },
+                      icon: const Icon(Icons.arrow_back),
+                    ),
 
-              Slider(
-                min: 5,
-                max: 120,
-                divisions: 23,
-                value: selectedMinutes.toDouble(),
-                label: '$selectedMinutes min',
-                onChanged: (value) {
-                  setState(() {
-                    selectedMinutes = value.round();
-                  });
-                },
-              ),
+                    const SizedBox(width: 8),
 
-              const SizedBox(height: 30),
-
-              FilledButton.icon(
-                onPressed: startTimer,
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('Start'),
-              ),
-            ],
-
-            if (timerStarted) ...[
-              Text(
-                isPaused ? 'Paused' : 'Focus time remaining',
-              ),
-
-              const SizedBox(height: 10),
-
-              Text(
-                formatTime(remaining),
-                style: const TextStyle(
-                  fontSize: 56,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              if (isRunning)
-                FilledButton.icon(
-                  onPressed: pauseTimer,
-                  icon: const Icon(Icons.pause),
-                  label: const Text('Pause'),
+                    Text('Focus', style: theme.textTheme.headlineMedium),
+                  ],
                 ),
 
-              if (isPaused)
-                FilledButton.icon(
-                  onPressed: resumeTimer,
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('Resume'),
-                ),
+                const SizedBox(height: 24),
 
-              const SizedBox(height: 10),
+                if (!timer.timerStarted) _TimerSetupCard(timer: timer),
 
-              TextButton.icon(
-                onPressed: confirmStop,
-                icon: const Icon(Icons.stop),
-                label: const Text('Stop'),
-              ),
-            ],
-          ],
+                if (timer.timerStarted)
+                  _ActiveTimerCard(
+                    timer: timer,
+                    formattedTime: formatTime(timer.remaining),
+                    onStop: () => confirmStop(context),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TimerSetupCard extends StatelessWidget {
+  final FocusTimerService timer;
+
+  const _TimerSetupCard({required this.timer});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondary.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
         ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                height: 46,
+                width: 46,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.timer_outlined,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+
+              const SizedBox(width: 16),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Focus timer', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Choose how long you want to focus.',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 28),
+
+          Text(
+            '${timer.selectedMinutes} min',
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          Slider(
+            min: 5,
+            max: 120,
+            divisions: 23,
+            value: timer.selectedMinutes.toDouble(),
+            label: '${timer.selectedMinutes} min',
+            onChanged: (value) {
+              timer.setMinutes(value.round());
+            },
+          ),
+
+          const SizedBox(height: 20),
+
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: timer.startTimer,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Start focus'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActiveTimerCard extends StatelessWidget {
+  final FocusTimerService timer;
+  final String formattedTime;
+  final VoidCallback onStop;
+
+  const _ActiveTimerCard({
+    required this.timer,
+    required this.formattedTime,
+    required this.onStop,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondary.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                height: 46,
+                width: 46,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  timer.isPaused ? Icons.pause : Icons.timer_outlined,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+
+              const SizedBox(width: 16),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      timer.isPaused ? 'Focus paused' : 'Focus active',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      timer.isPaused
+                          ? 'Resume when you are ready.'
+                          : 'Stay focused until the timer ends.',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 32),
+
+          Text(
+            formattedTime,
+            style: theme.textTheme.displayMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 6),
+
+          Text(
+            timer.isPaused ? 'Paused' : 'Time remaining',
+            style: theme.textTheme.bodySmall,
+          ),
+
+          const SizedBox(height: 32),
+
+          SizedBox(
+            width: double.infinity,
+            child: timer.isRunning
+                ? FilledButton.icon(
+                    onPressed: timer.pauseTimer,
+                    icon: const Icon(Icons.pause),
+                    label: const Text('Pause'),
+                  )
+                : FilledButton.icon(
+                    onPressed: timer.resumeTimer,
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('Resume'),
+                  ),
+          ),
+
+          const SizedBox(height: 8),
+
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: onStop,
+              icon: const Icon(Icons.stop_outlined),
+              label: const Text('Stop focus'),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -10,6 +10,7 @@ import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 
 import 'services/notification_service.dart';
+import 'services/timer_service.dart';
 
 final GoRouter router = GoRouter(
   initialLocation: '/',
@@ -66,7 +67,27 @@ final GoRouter router = GoRouter(
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await NotificationService.initialize();
+
+  await NotificationService.initialize(
+    onAction: (response) {
+      final timer = FocusTimerService.instance;
+
+      switch (response.actionId) {
+        case 'pause_timer':
+          timer.pauseTimer();
+          break;
+
+        case 'resume_timer':
+          timer.resumeTimer();
+          break;
+
+        case 'stop_timer':
+          timer.stopTimer();
+          break;
+      }
+    },
+  );
+
   await themeController.load();
 
   runApp(const MyApp());
@@ -108,10 +129,7 @@ class MainScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: Text('Rest For More'),
-      ),
+      appBar: AppBar(centerTitle: true, title: Text('Rest For More')),
 
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: navigationShell,
