@@ -1,3 +1,4 @@
+import 'package:app_blocker/app_blocker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rest_for_more/screens/modes/focus.dart';
@@ -93,10 +94,49 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  final AppBlocker _blocker = AppBlocker.instance;
+
+  bool _requestedPermission = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addObserver(this);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkInitialPermission();
+    });
+  }
+
+  Future<void> _checkInitialPermission() async {
+    if (_requestedPermission) return;
+
+    final permission = await _blocker.checkPermission();
+
+    if (permission == BlockerPermissionStatus.granted) {
+      return;
+    }
+
+    _requestedPermission = true;
+
+    await _blocker.requestPermission();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(

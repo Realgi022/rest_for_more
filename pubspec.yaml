@@ -38,6 +38,8 @@ dependencies:
   google_fonts: ^6.2.1
   flutter_local_notifications: ^22.3.1
   shared_preferences: ^2.5.5
+  app_blocker: ^2.2.0
+  circle_time_progress: ^0.0.1
 
 dev_dependencies:
   flutter_test:

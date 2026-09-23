@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:app_blocker/app_blocker.dart';
 
 import 'notification_service.dart';
 
@@ -8,6 +9,8 @@ class FocusTimerService extends ChangeNotifier {
   FocusTimerService._();
 
   static final FocusTimerService instance = FocusTimerService._();
+
+  final AppBlocker _blocker = AppBlocker.instance;
 
   int selectedMinutes = 20;
 
@@ -49,7 +52,7 @@ class FocusTimerService extends ChangeNotifier {
       final difference = end.difference(DateTime.now());
 
       if (difference <= Duration.zero) {
-        finishTimer();
+        finishTimer(); 
         return;
       }
 
@@ -82,9 +85,10 @@ class FocusTimerService extends ChangeNotifier {
     _startCountdown();
   }
 
-  void finishTimer() {
+  void finishTimer() async {
     _timer?.cancel();
     _endTime = null;
+    _blocker.unblockAll();
 
     NotificationService.cancelTimerNotification();
 
@@ -95,9 +99,10 @@ class FocusTimerService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void stopTimer() {
+  void stopTimer() async {
     _timer?.cancel();
     _endTime = null;
+    _blocker.unblockAll();
 
     NotificationService.cancelTimerNotification();
 
