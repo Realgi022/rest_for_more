@@ -213,8 +213,17 @@ class _SwipePageContainerState extends State<SwipePageContainer> {
 
   @override
   Widget build(BuildContext context) {
+    final currentPath = GoRouterState.of(context).uri.path;
+
+    final isFocusPage = currentPath == '/modes/focus';
+
     return PageView(
       controller: _pageController,
+
+      // Disable swiping while on FocusScreen
+      physics: isFocusPage
+          ? const NeverScrollableScrollPhysics()
+          : const PageScrollPhysics(),
 
       onPageChanged: (index) {
         if (index != widget.navigationShell.currentIndex) {
