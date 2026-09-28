@@ -1,17 +1,13 @@
 import 'package:app_blocker/app_blocker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rest_for_more/screens/modes/focus.dart';
 
+import 'screens/blocked_apps.dart';
 import 'screens/modes.dart';
 import 'screens/settings.dart';
 import 'screens/today.dart';
-
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
-
-import 'services/notification_service.dart';
-import 'services/timer_service.dart';
 
 final GoRouter router = GoRouter(
   initialLocation: '/',
@@ -43,12 +39,6 @@ final GoRouter router = GoRouter(
             GoRoute(
               path: '/modes',
               builder: (context, state) => const ModesScreen(),
-              routes: [
-                GoRoute(
-                  path: 'focus',
-                  builder: ((context, state) => const FocusScreen()),
-                ),
-              ],
             ),
           ],
         ),
@@ -58,6 +48,12 @@ final GoRouter router = GoRouter(
             GoRoute(
               path: '/settings',
               builder: (context, state) => const SettingsScreen(),
+              routes: [
+                GoRoute(
+                  path: 'blocked-apps',
+                  builder: (context, state) => const BlockedAppsScreen(),
+                ),
+              ],
             ),
           ],
         ),
@@ -68,27 +64,6 @@ final GoRouter router = GoRouter(
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  await NotificationService.initialize(
-    onAction: (response) {
-      final timer = FocusTimerService.instance;
-
-      switch (response.actionId) {
-        case 'pause_timer':
-          timer.pauseTimer();
-          break;
-
-        case 'resume_timer':
-          timer.resumeTimer();
-          break;
-
-        case 'stop_timer':
-          timer.stopTimer();
-          break;
-      }
-    },
-  );
-
   await themeController.load();
 
   runApp(const MyApp());
@@ -169,8 +144,6 @@ class MainScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(centerTitle: true, title: Text('Rest For More')),
-
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: navigationShell,
 
