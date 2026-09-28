@@ -1,6 +1,7 @@
 import 'package:app_blocker/app_blocker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rest_for_more/screens/modes/focus.dart';
 
 import 'screens/blocked_apps.dart';
 import 'screens/modes.dart';
@@ -39,6 +40,12 @@ final GoRouter router = GoRouter(
             GoRoute(
               path: '/modes',
               builder: (context, state) => const ModesScreen(),
+              routes: [
+                GoRoute(
+                  path: 'focus',
+                  builder: (context, state) => const FocusScreen(),
+                ),
+              ],
             ),
           ],
         ),
@@ -79,8 +86,6 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final AppBlocker _blocker = AppBlocker.instance;
 
-  bool _requestedPermission = false;
-
   @override
   void initState() {
     super.initState();
@@ -88,22 +93,27 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkInitialPermission();
+      _checkPermission();
     });
   }
 
-  Future<void> _checkInitialPermission() async {
-    if (_requestedPermission) return;
-
+  Future<void> _checkPermission() async {
     final permission = await _blocker.checkPermission();
 
+    debugPrint('APP BLOCKER PERMISSION: $permission');
+
     if (permission == BlockerPermissionStatus.granted) {
-      return;
+      debugPrint('App blocking permission is granted');
+    } else {
+      debugPrint('App blocking permission is NOT granted');
     }
+  }
 
-    _requestedPermission = true;
-
-    await _blocker.requestPermission();
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkPermission();
+    }
   }
 
   @override
