@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_blocker_accessibility_description">Detects when selected distracting apps are opened so Rest For More can block them during focus.</string>
+</resources>
