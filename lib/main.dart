@@ -7,6 +7,7 @@ import 'screens/blocked_apps.dart';
 import 'screens/modes.dart';
 import 'screens/settings.dart';
 import 'screens/today.dart';
+import 'screens/progress.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 
@@ -61,6 +62,14 @@ final GoRouter router = GoRouter(
                   builder: (context, state) => const BlockedAppsScreen(),
                 ),
               ],
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/progress',
+              builder: (context, state) => const ProgressScreen(),
             ),
           ],
         ),
@@ -175,6 +184,11 @@ class MainScaffold extends StatelessWidget {
             icon: Icon(Icons.settings_outlined),
             selectedIcon: Icon(Icons.settings),
             label: 'Settings',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart),
+            label: 'Progress',
           ),
         ],
       ),
