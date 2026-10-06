@@ -16,23 +16,33 @@ class ProgressScreen extends StatelessWidget {
         padding: const EdgeInsets.all(AppSpacing.gutter),
         child: ListView(
           children: [
-            Text("This week's moments"),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Text('Mo'),
-                Text('Tu'),
-                Text('We'),
-                Text('Th'),
-                Text('Fr'),
-                Text('Sa'),
-                Text('Su'),
-                Spacer(),
+                Text("This week's moments"),
+                const Spacer(),
                 IconButton(
                   onPressed: () {
                     context.go('/calendar');
                   },
-                  icon: Icon(Icons.calendar_month),
+                  icon: const Icon(Icons.calendar_month),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Mo'),
+                      Text('Tu'),
+                      Text('We'),
+                      Text('Th'),
+                      Text('Fr'),
+                      Text('Sa'),
+                      Text('Su'),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -48,7 +58,7 @@ class ProgressScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text('Completed moments', style: theme.textTheme.headlineMedium),
-              const SizedBox(height: 16),
+            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(AppSpacing.gutter),
               decoration: BoxDecoration(
