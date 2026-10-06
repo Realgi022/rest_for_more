@@ -41,11 +41,10 @@ class _FocusMomentScreenState extends State<FocusMomentScreen> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({super.key});
+  const _Header();
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,7 +63,7 @@ class _Header extends StatelessWidget {
 }
 
 class _TimerCard extends StatelessWidget {
-  const _TimerCard({super.key});
+  const _TimerCard();
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +76,7 @@ class _TimerCard extends StatelessWidget {
 }
 
 class _InactiveTimerCard extends StatefulWidget {
-  const _InactiveTimerCard({super.key});
+  const _InactiveTimerCard();
 
   @override
   State<_InactiveTimerCard> createState() => _InactiveTimerCardState();
@@ -339,7 +338,7 @@ class _PresetButton extends StatelessWidget {
 }
 
 class _ActiveTimerCard extends StatelessWidget {
-  const _ActiveTimerCard({super.key});
+  const _ActiveTimerCard();
 
   @override
   Widget build(BuildContext context) {
@@ -425,7 +424,7 @@ class _ActiveTimerCard extends StatelessWidget {
 }
 
 class _ActivePausedTimer extends StatelessWidget {
-  const _ActivePausedTimer({super.key});
+  const _ActivePausedTimer();
 
   @override
   Widget build(BuildContext context) {
@@ -437,7 +436,7 @@ class _ActivePausedTimer extends StatelessWidget {
 }
 
 class _ActiveTimerControls extends StatelessWidget {
-  const _ActiveTimerControls({super.key});
+  const _ActiveTimerControls();
 
   @override
   Widget build(BuildContext context) {
@@ -481,7 +480,7 @@ class _ActiveTimerControls extends StatelessWidget {
 }
 
 class _PausedTimerControls extends StatelessWidget {
-  const _PausedTimerControls({super.key});
+  const _PausedTimerControls();
 
   @override
   Widget build(BuildContext context) {
