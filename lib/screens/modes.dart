@@ -86,7 +86,8 @@ class _ModeTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: theme.colorScheme.secondary.withValues(alpha: 0.16),
+          color: theme.cardTheme.color,
+          // color: theme.colorScheme.secondary.withValues(alpha: 0.16),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
