@@ -45,6 +45,8 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -117,12 +119,13 @@ class _InactiveTimerCardState extends State<_InactiveTimerCard> {
   @override
   Widget build(BuildContext context) {
     final timer = FocusTimerService.instance;
+    final theme = Theme.of(context);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFFEBE6DA),
+        color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -141,14 +144,11 @@ class _InactiveTimerCardState extends State<_InactiveTimerCard> {
           const SizedBox(height: 32),
           ElevatedButton(
             onPressed: timer.startTimer,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7B563D),
-            ),
             child: Text(
               'Start',
               textAlign: TextAlign.center,
               style: GoogleFonts.cormorantGaramond(
-                color: const Color(0xFFFAF8F4),
+                color: theme.colorScheme.onPrimary,
                 fontWeight: FontWeight.normal,
                 fontSize: 30,
               ),
@@ -322,13 +322,17 @@ class _PresetButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return TextButton(
       onPressed: onTap,
-      style: TextButton.styleFrom(backgroundColor: const Color(0xFFFAF8F4)),
+      style: TextButton.styleFrom(
+        backgroundColor: theme.colorScheme.surface,
+        foregroundColor: theme.colorScheme.onSurface,
+      ),
       child: Text(
         label,
         textAlign: TextAlign.center,
-        style: GoogleFonts.manrope(color: const Color(0xFF4E3B31)),
+        style: GoogleFonts.manrope(color: theme.colorScheme.onSurface),
       ),
     );
   }
@@ -344,6 +348,8 @@ class _ActiveTimerCard extends StatelessWidget {
     return ListenableBuilder(
       listenable: timer,
       builder: (context, _) {
+        final theme = Theme.of(context);
+
         final progress = timer.selectedDuration.inMilliseconds == 0
             ? 0.0
             : timer.remaining.inMilliseconds /
@@ -353,7 +359,7 @@ class _ActiveTimerCard extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: const Color(0xFFEBE6DA),
+            color: theme.cardTheme.color,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
@@ -363,10 +369,15 @@ class _ActiveTimerCard extends StatelessWidget {
                 children: [
                   GradientCircularProgressIndicator(
                     value: progress,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF7B563D), Color(0xFF7B563D)],
+                    gradient: LinearGradient(
+                      colors: [
+                        theme.colorScheme.onSurface,
+                        theme.colorScheme.onSurface,
+                      ],
                     ),
-                    backgroundColor: Colors.grey.shade300,
+                    backgroundColor: theme.colorScheme.onSurface.withValues(
+                      alpha: 0.12,
+                    ),
                     size: 200,
                   ),
 
@@ -378,7 +389,6 @@ class _ActiveTimerCard extends StatelessWidget {
                             : formatDuration(timer.remaining),
                         style: GoogleFonts.cormorantGaramond(
                           fontSize: 40,
-                          color: const Color(0xFF4E3B31),
                         ),
                       ),
                       Wrap(
@@ -402,7 +412,7 @@ class _ActiveTimerCard extends StatelessWidget {
                       'The timer has ended',
                       style: GoogleFonts.cormorantGaramond(
                         fontSize: 40,
-                        color: const Color(0xFF4E3B31),
+                        // color: const Color(0xFF4E3B31),
                       ),
                     )
                   : _ActivePausedTimer(),
@@ -432,6 +442,7 @@ class _ActiveTimerControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timer = FocusTimerService.instance;
+    final theme = Theme.of(context);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -439,13 +450,14 @@ class _ActiveTimerControls extends StatelessWidget {
         ElevatedButton(
           onPressed: timer.cancelTimer,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFFAF8F4),
+            backgroundColor: theme.colorScheme.surface,
+            foregroundColor: theme.colorScheme.onSurface,
           ),
           child: Text(
             'Cancel',
             textAlign: TextAlign.center,
             style: GoogleFonts.cormorantGaramond(
-              color: const Color(0xFF4E3B31),
+              color: theme.colorScheme.onSurface,
               fontWeight: FontWeight.normal,
               fontSize: 30,
             ),
@@ -453,14 +465,11 @@ class _ActiveTimerControls extends StatelessWidget {
         ),
         ElevatedButton(
           onPressed: timer.pauseTimer,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF4E3B31),
-          ),
           child: Text(
             'Pause',
             textAlign: TextAlign.center,
             style: GoogleFonts.cormorantGaramond(
-              color: const Color(0xFFFAF8F4),
+              color: theme.colorScheme.onPrimary,
               fontWeight: FontWeight.normal,
               fontSize: 30,
             ),
@@ -477,19 +486,22 @@ class _PausedTimerControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timer = FocusTimerService.instance;
+    final theme = Theme.of(context);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         ElevatedButton(
           onPressed: timer.cancelTimer,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFFAF8F4),
+            backgroundColor: theme.colorScheme.surface,
+            foregroundColor: theme.colorScheme.onSurface,
           ),
           child: Text(
             'Cancel',
             textAlign: TextAlign.center,
             style: GoogleFonts.cormorantGaramond(
-              color: const Color(0xFF4E3B31),
+              color: theme.colorScheme.onSurface,
               fontWeight: FontWeight.normal,
               fontSize: 30,
             ),
@@ -497,14 +509,11 @@ class _PausedTimerControls extends StatelessWidget {
         ),
         ElevatedButton(
           onPressed: timer.resumeTimer,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF4E3B31),
-          ),
           child: Text(
             'Resume',
             textAlign: TextAlign.center,
             style: GoogleFonts.cormorantGaramond(
-              color: const Color(0xFFFAF8F4),
+              color: theme.colorScheme.onPrimary,
               fontWeight: FontWeight.normal,
               fontSize: 30,
             ),
