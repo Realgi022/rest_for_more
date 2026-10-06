@@ -1,18 +1,14 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:app_blocker/app_blocker.dart';
-
-import 'notification_service.dart';
 
 class FocusTimerService extends ChangeNotifier {
   FocusTimerService._();
 
   static final FocusTimerService instance = FocusTimerService._();
 
-  final AppBlocker _blocker = AppBlocker.instance;
-
-  int selectedMinutes = 20;
+  int selectedHours = 0;
+  int selectedMinutes = 0;
+  int selectedSeconds = 0;
 
   Duration remaining = Duration.zero;
 
@@ -24,13 +20,50 @@ class FocusTimerService extends ChangeNotifier {
 
   bool get timerStarted => isRunning || isPaused;
 
+  Duration get selectedDuration {
+    return Duration(
+      hours: selectedHours,
+      minutes: selectedMinutes,
+      seconds: selectedSeconds,
+    );
+  }
+
+  void setHours(int hours) {
+    selectedHours = hours;
+    notifyListeners();
+  }
+
   void setMinutes(int minutes) {
     selectedMinutes = minutes;
     notifyListeners();
   }
 
+  void setSeconds(int seconds) {
+    selectedSeconds = seconds;
+    notifyListeners();
+  }
+
+  void setDuration({
+    required int hours,
+    required int minutes,
+    required int seconds,
+  }) {
+    selectedHours = hours;
+    selectedMinutes = minutes;
+    selectedSeconds = seconds;
+
+    notifyListeners();
+  }
+
   void startTimer() {
-    remaining = Duration(minutes: selectedMinutes);
+    final duration = selectedDuration;
+
+    if (duration <= Duration.zero) {
+      return;
+    }
+
+    remaining = duration;
+
     _startCountdown();
   }
 
@@ -40,27 +73,27 @@ class FocusTimerService extends ChangeNotifier {
     isRunning = true;
     isPaused = false;
 
-    NotificationService.showTimerNotification(remaining);
-
     _timer?.cancel();
 
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      final end = _endTime;
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) {
+        final end = _endTime;
 
-      if (end == null) return;
+        if (end == null) return;
 
-      final difference = end.difference(DateTime.now());
+        final difference = end.difference(DateTime.now());
 
-      if (difference <= Duration.zero) {
-        finishTimer(); 
-        return;
-      }
+        if (difference <= Duration.zero) {
+          finishTimer();
+          return;
+        }
 
-      remaining = difference;
-      NotificationService.showTimerNotification(remaining);
+        remaining = difference;
 
-      notifyListeners();
-    });
+        notifyListeners();
+      },
+    );
 
     notifyListeners();
   }
@@ -68,6 +101,10 @@ class FocusTimerService extends ChangeNotifier {
   void pauseTimer() {
     if (_endTime != null) {
       remaining = _endTime!.difference(DateTime.now());
+
+      if (remaining < Duration.zero) {
+        remaining = Duration.zero;
+      }
     }
 
     _timer?.cancel();
@@ -76,37 +113,23 @@ class FocusTimerService extends ChangeNotifier {
     isRunning = false;
     isPaused = true;
 
-    NotificationService.showPausedTimerNotification(remaining);
-
     notifyListeners();
   }
 
   void resumeTimer() {
+    if (!isPaused || remaining <= Duration.zero) {
+      return;
+    }
+
     _startCountdown();
   }
 
-  void finishTimer() async {
+  void finishTimer() {
     _timer?.cancel();
     _endTime = null;
-    _blocker.unblockAll();
-
-    NotificationService.cancelTimerNotification();
 
     remaining = Duration.zero;
-    isRunning = false;
-    isPaused = false;
 
-    notifyListeners();
-  }
-
-  void stopTimer() async {
-    _timer?.cancel();
-    _endTime = null;
-    _blocker.unblockAll();
-
-    NotificationService.cancelTimerNotification();
-
-    remaining = Duration.zero;
     isRunning = false;
     isPaused = false;
 
