@@ -12,104 +12,114 @@ class ProgressScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final today = DateTime.now();
     return Scaffold(
-      body: Column(
-        children: [
-          Text("This week's moments"),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              Text('Mo'),
-              Text('Tu'),
-              Text('We'),
-              Text('Th'),
-              Text('Fr'),
-              Text('Sa'),
-              Text('Su'),
-              Spacer(),
-              IconButton(
-                onPressed: () {
-                  context.go('/calendar');
-                },
-                icon: Icon(Icons.calendar_month),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Text('Today', style: appTextTheme.headlineMedium),
-              Spacer(),
-              Text(
-                today.toString().substring(0, 10),
-                style: appTextTheme.bodyMedium,
-              ),
-            ],
-          ),
-          Text('Completed moments', style: appTextTheme.headlineSmall),
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.gutter),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.secondary.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
-              ),
-            ),
-            child: Row(
+      body: Padding(
+        padding: const EdgeInsets.all(AppSpacing.gutter),
+        child: ListView(
+          children: [
+            Text("This week's moments"),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Icon(Icons.wb_sunny_outlined, color: theme.colorScheme.primary),
-                const SizedBox(width: 16),
-                Text('Morning', style: theme.textTheme.bodyMedium),
+                Text('Mo'),
+                Text('Tu'),
+                Text('We'),
+                Text('Th'),
+                Text('Fr'),
+                Text('Sa'),
+                Text('Su'),
                 Spacer(),
-                Text('25 min', style: theme.textTheme.bodySmall),
+                IconButton(
+                  onPressed: () {
+                    context.go('/calendar');
+                  },
+                  icon: Icon(Icons.calendar_month),
+                ),
               ],
             ),
-          ),
-          Row(
-            children: [
-              Text('Step completed', style: appTextTheme.headlineSmall),
-              const Spacer(),
-              TextButton(
-                onPressed: () {
-                  context.go('/allSteps');
-                },
-                child: Text('See all steps'),
-              ),
-            ],
-          ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppSpacing.gutter),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.secondary.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Row(
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.wb_sunny_outlined,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 16),
-                    Text("Today's step", style: theme.textTheme.bodyMedium),
-                    const Spacer(),
-                    Text('Day 8', style: theme.textTheme.bodySmall),
-                  ],
-                ),
-                const SizedBox(height: 8),
+                Text('Today', style: appTextTheme.headlineMedium),
+                Spacer(),
                 Text(
-                  'You drank 8 glasses of water today, great job!',
-                  style: theme.textTheme.bodyMedium,
+                  today.toString().substring(0, 10),
+                  style: appTextTheme.bodyMedium,
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 24),
+            Text('Completed moments', style: theme.textTheme.headlineMedium),
+              const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.gutter),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.secondary.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.wb_sunny_outlined,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 16),
+                  Text('Morning', style: theme.textTheme.bodyMedium),
+                  Spacer(),
+                  Text('25 min', style: theme.textTheme.bodySmall),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Text('Step completed', style: theme.textTheme.headlineMedium),
+                const Spacer(),
+                TextButton(
+                  onPressed: () {
+                    context.go('/allSteps');
+                  },
+                  child: Text('See all steps'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.gutter),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.secondary.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.wb_sunny_outlined,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 16),
+                      Text("Today's step", style: theme.textTheme.bodyMedium),
+                      const Spacer(),
+                      Text('Day 8', style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'You drank 8 glasses of water today, great job!',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
