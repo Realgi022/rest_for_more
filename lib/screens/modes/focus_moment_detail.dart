@@ -322,24 +322,9 @@ class _PresetButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // return ElevatedButton(
-    //   onPressed: onTap,
-    //   style: ElevatedButton.styleFrom(
-    //     backgroundColor: const Color(0xFFFAF8F4),
-    //     shape: CircleBorder(),
-    //     padding: EdgeInsets.all(20),
-    //   ),
-    //   child: Text(
-    //     label,
-    //     textAlign: TextAlign.center,
-    //     style: GoogleFonts.manrope(color: const Color(0xFF4E3B31)),
-    //   ),
-    // );
     return TextButton(
       onPressed: onTap,
-      style: TextButton.styleFrom(
-        backgroundColor: const Color(0xFFFAF8F4),
-      ), 
+      style: TextButton.styleFrom(backgroundColor: const Color(0xFFFAF8F4)),
       child: Text(
         label,
         textAlign: TextAlign.center,
@@ -385,19 +370,42 @@ class _ActiveTimerCard extends StatelessWidget {
                     size: 200,
                   ),
 
-                  Text(
-                    formatDuration(timer.remaining),
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 30,
-                      color: const Color(0xFF4E3B31),
-                    ),
+                  Column(
+                    children: [
+                      Text(
+                        timer.hasEnded
+                            ? 'Done'
+                            : formatDuration(timer.remaining),
+                        style: GoogleFonts.cormorantGaramond(
+                          fontSize: 40,
+                          color: const Color(0xFF4E3B31),
+                        ),
+                      ),
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Icon(Icons.alarm),
+                          Text(
+                            formatEndTime(DateTime.now().add(timer.remaining)),
+                            style: GoogleFonts.manrope(fontSize: 20),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ],
               ),
 
               const SizedBox(height: 32),
-
-              _ActivePausedTimer(),
+              timer.hasEnded
+                  ? Text(
+                      'The timer has ended',
+                      style: GoogleFonts.cormorantGaramond(
+                        fontSize: 40,
+                        color: const Color(0xFF4E3B31),
+                      ),
+                    )
+                  : _ActivePausedTimer(),
             ],
           ),
         );
@@ -429,7 +437,7 @@ class _ActiveTimerControls extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         ElevatedButton(
-          onPressed: timer.finishTimer,
+          onPressed: timer.cancelTimer,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFFAF8F4),
           ),
@@ -473,7 +481,7 @@ class _PausedTimerControls extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         ElevatedButton(
-          onPressed: timer.finishTimer,
+          onPressed: timer.cancelTimer,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFFAF8F4),
           ),
@@ -512,4 +520,11 @@ String formatDuration(Duration duration) {
   String minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
   String seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
   return "$hours:$minutes:$seconds";
+}
+
+String formatEndTime(DateTime time) {
+  String hours = time.hour.toString().padLeft(2, '0');
+  String minutes = time.minute.toString().padLeft(2, '0');
+
+  return '$hours:$minutes';
 }

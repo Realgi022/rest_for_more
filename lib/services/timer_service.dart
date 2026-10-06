@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 
 class FocusTimerService extends ChangeNotifier {
@@ -11,12 +12,14 @@ class FocusTimerService extends ChangeNotifier {
   int selectedSeconds = 0;
 
   Duration remaining = Duration.zero;
+  Duration endTime = Duration.zero;
 
   Timer? _timer;
   DateTime? _endTime;
 
   bool isRunning = false;
   bool isPaused = false;
+  bool hasEnded = false;
 
   bool get timerStarted => isRunning || isPaused;
 
@@ -124,14 +127,34 @@ class FocusTimerService extends ChangeNotifier {
     _startCountdown();
   }
 
-  void finishTimer() {
+  Future<void> finishTimer() async {
     _timer?.cancel();
     _endTime = null;
 
     remaining = Duration.zero;
 
+    hasEnded = true;
+
+    notifyListeners();
+
+    await Future.delayed(const Duration(seconds: 5));
+
     isRunning = false;
     isPaused = false;
+    hasEnded = false;
+
+    notifyListeners();
+  }
+
+  void cancelTimer() {
+    _timer?.cancel();
+    _endTime = null;
+
+        remaining = Duration.zero;
+
+    isRunning = false;
+    isPaused = false;
+    hasEnded = false;
 
     notifyListeners();
   }
