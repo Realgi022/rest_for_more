@@ -675,12 +675,8 @@ class _ScrollableTimePickerSheetState
     _minute = widget.initialTime.minute;
     _isPm = widget.initialTime.hour >= 12;
 
-    _hourController = FixedExtentScrollController(
-      initialItem: _loopingInitialItem(itemCount: 12, selectedIndex: _hour - 1),
-    );
-    _minuteController = FixedExtentScrollController(
-      initialItem: _loopingInitialItem(itemCount: 60, selectedIndex: _minute),
-    );
+    _hourController = FixedExtentScrollController(initialItem: _hour - 1);
+    _minuteController = FixedExtentScrollController(initialItem: _minute);
     _periodController = FixedExtentScrollController(initialItem: _isPm ? 1 : 0);
   }
 
@@ -799,8 +795,6 @@ class _ScrollableTimePickerSheetState
 }
 
 class _ScheduleTimePickerColumn extends StatelessWidget {
-  static const _loopingItemCount = 10000;
-
   final String label;
   final FixedExtentScrollController controller;
   final int itemCount;
@@ -831,6 +825,7 @@ class _ScheduleTimePickerColumn extends StatelessWidget {
           child: CupertinoPicker(
             scrollController: controller,
             itemExtent: 40,
+            looping: looping,
             onSelectedItemChanged: onChanged,
             selectionOverlay: DecoratedBox(
               decoration: BoxDecoration(
@@ -838,12 +833,10 @@ class _ScheduleTimePickerColumn extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            children: List.generate(looping ? _loopingItemCount : itemCount, (
-              index,
-            ) {
+            children: List.generate(itemCount, (index) {
               return Center(
                 child: Text(
-                  itemBuilder(looping ? index % itemCount : index),
+                  itemBuilder(index),
                   style: GoogleFonts.manrope(color: colorScheme.onSurface),
                 ),
               );
@@ -853,12 +846,6 @@ class _ScheduleTimePickerColumn extends StatelessWidget {
       ],
     );
   }
-}
-
-int _loopingInitialItem({required int itemCount, required int selectedIndex}) {
-  const middle = _ScheduleTimePickerColumn._loopingItemCount ~/ 2;
-
-  return middle - (middle % itemCount) + selectedIndex;
 }
 
 int _timeOfDayToMinutes(TimeOfDay time) {
