@@ -1,13 +1,13 @@
 import 'package:app_blocker/app_blocker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-// import 'package:rest_for_more/screens/modes/focus.dart';
 import 'package:rest_for_more/screens/modes/focus_moment_detail.dart';
 
 import 'screens/blocked_apps.dart';
 import 'screens/modes.dart';
 import 'screens/settings.dart';
 import 'screens/today.dart';
+import 'services/mode_schedule_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 
@@ -42,10 +42,6 @@ final GoRouter router = GoRouter(
               path: '/modes',
               builder: (context, state) => const ModesScreen(),
               routes: [
-                // GoRoute(
-                //   path: 'focus',
-                //   builder: (context, state) => const FocusScreen(),
-                // ),
                 GoRoute(
                   path: 'focus',
                   builder: (context, state) => const FocusMomentScreen(),
@@ -77,6 +73,7 @@ final GoRouter router = GoRouter(
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await themeController.load();
+  await modeScheduleService.load();
 
   runApp(const MyApp());
 }
