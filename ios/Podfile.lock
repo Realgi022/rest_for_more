@@ -1,0 +1,22 @@
+PODS:
+  - app_blocker (2.2.0):
+    - Flutter
+  - Flutter (1.0.0)
+
+DEPENDENCIES:
+  - app_blocker (from `.symlinks/plugins/app_blocker/ios`)
+  - Flutter (from `Flutter`)
+
+EXTERNAL SOURCES:
+  app_blocker:
+    :path: ".symlinks/plugins/app_blocker/ios"
+  Flutter:
+    :path: Flutter
+
+SPEC CHECKSUMS:
+  app_blocker: 02e9d5314d63a002ad0d9626c536ff17b56079b9
+  Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
+
+PODFILE CHECKSUM: 4922199b5b3854e7c0c2afda74c2fa2ae220b9d8
+
+COCOAPODS: 1.17.0

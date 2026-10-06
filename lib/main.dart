@@ -5,14 +5,31 @@ import 'package:rest_for_more/screens/modes/focus.dart';
 
 import 'screens/blocked_apps.dart';
 import 'screens/modes.dart';
+import 'screens/onboarding.dart'; 
 import 'screens/settings.dart';
 import 'screens/today.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
+bool onboardingDone = false;
 
 final GoRouter router = GoRouter(
   initialLocation: '/',
+  redirect: (context, state) {
+    if (!onboardingDone && state.uri.path != '/onboarding') {
+      return '/onboarding';
+    }
+    return null;
+  },
   routes: [
+    GoRoute(
+      path: '/onboarding',
+      builder: (context, state) => OnboardingFlow(
+        onFinished: (_) {
+          onboardingDone = true;
+          context.go('/');
+        },
+      ),
+    ),
     StatefulShellRoute(
       builder: (context, state, navigationShell) {
         return MainScaffold(navigationShell: navigationShell);
@@ -72,7 +89,7 @@ final GoRouter router = GoRouter(
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await themeController.load();
-
+  onboardingDone = await OnboardingFlow.isDone();
   runApp(const MyApp());
 }
 
