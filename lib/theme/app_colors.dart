@@ -62,8 +62,11 @@ class AppColors {
   static const nightSurface = Color(0xFF4E3B31);
   static const nightSurfaceMuted = Color(0xFF5C473C);
 
-  static const nightBrand = Color(0xFFFFB60A);
-  static const nightBrandTint = Color(0xFFD99A08);
+  // static const nightBrand = Color(0xFFFFB60A);
+  // static const nightBrandTint = Color(0xFFD99A08);
+
+  static const nightBrand = Color(0xFFFAF8F4);
+  static const nightBrandTint = Color(0xFFEBE6DA);
 
   static const nightTextPrimary = Color(0xFFFAF8F4);
   static const nightTextSecondary = Color(0xFFEBE6DA);

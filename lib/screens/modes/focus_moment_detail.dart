@@ -370,8 +370,8 @@ class _ActiveTimerCard extends StatelessWidget {
                     value: progress,
                     gradient: LinearGradient(
                       colors: [
-                        theme.colorScheme.onSurface,
-                        theme.colorScheme.onSurface,
+                        theme.colorScheme.primary,
+                        theme.colorScheme.primary,
                       ],
                     ),
                     backgroundColor: theme.colorScheme.onSurface.withValues(
@@ -387,7 +387,7 @@ class _ActiveTimerCard extends StatelessWidget {
                             ? 'Done'
                             : formatDuration(timer.remaining),
                         style: GoogleFonts.cormorantGaramond(
-                          fontSize: 40,
+                          fontSize: 30,
                         ),
                       ),
                       Wrap(
@@ -458,7 +458,7 @@ class _ActiveTimerControls extends StatelessWidget {
             style: GoogleFonts.cormorantGaramond(
               color: theme.colorScheme.onSurface,
               fontWeight: FontWeight.normal,
-              fontSize: 30,
+              fontSize: 20,
             ),
           ),
         ),
@@ -470,7 +470,7 @@ class _ActiveTimerControls extends StatelessWidget {
             style: GoogleFonts.cormorantGaramond(
               color: theme.colorScheme.onPrimary,
               fontWeight: FontWeight.normal,
-              fontSize: 30,
+              fontSize: 20,
             ),
           ),
         ),
@@ -502,7 +502,7 @@ class _PausedTimerControls extends StatelessWidget {
             style: GoogleFonts.cormorantGaramond(
               color: theme.colorScheme.onSurface,
               fontWeight: FontWeight.normal,
-              fontSize: 30,
+              fontSize: 20,
             ),
           ),
         ),
@@ -514,7 +514,7 @@ class _PausedTimerControls extends StatelessWidget {
             style: GoogleFonts.cormorantGaramond(
               color: theme.colorScheme.onPrimary,
               fontWeight: FontWeight.normal,
-              fontSize: 30,
+              fontSize: 20,
             ),
           ),
         ),
