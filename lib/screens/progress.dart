@@ -14,7 +14,7 @@ class ProgressScreen extends StatelessWidget {
     return Scaffold(
       body: Column(
         children: [
-          Text ("This week's moments"),
+          Text("This week's moments"),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -58,20 +58,15 @@ class ProgressScreen extends StatelessWidget {
               children: [
                 Icon(Icons.wb_sunny_outlined, color: theme.colorScheme.primary),
                 const SizedBox(width: 16),
-                Text('Morning',
-                style: theme.textTheme.bodyMedium),
+                Text('Morning', style: theme.textTheme.bodyMedium),
                 Spacer(),
-                Text('25 min'
-                , style: theme.textTheme.bodySmall),
+                Text('25 min', style: theme.textTheme.bodySmall),
               ],
             ),
           ),
           Row(
             children: [
-              Text(
-                'Step completed', 
-                style: appTextTheme.headlineSmall,
-                ),
+              Text('Step completed', style: appTextTheme.headlineSmall),
               const Spacer(),
               TextButton(
                 onPressed: () {
@@ -80,7 +75,40 @@ class ProgressScreen extends StatelessWidget {
                 child: Text('See all steps'),
               ),
             ],
-          )
+          ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.gutter),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.secondary.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.wb_sunny_outlined,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 16),
+                    Text("Today's step", style: theme.textTheme.bodyMedium),
+                    const Spacer(),
+                    Text('Day 8', style: theme.textTheme.bodySmall),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You drank 8 glasses of water today, great job!',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
