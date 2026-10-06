@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -7,10 +8,20 @@ import '../models/mode_schedule.dart';
 
 final modeScheduleService = ModeScheduleService();
 
+typedef ModeScheduleActivator = FutureOr<void> Function(
+  ModeSchedule schedule,
+  Duration remaining,
+);
+
 class ModeScheduleService extends ChangeNotifier {
   static const _schedulesKey = 'mode_schedules';
+  static const _runnerInterval = Duration(seconds: 30);
 
   final List<ModeSchedule> _schedules = [];
+  final Map<ModeId, ModeScheduleActivator> _activators = {};
+  final Map<String, String> _activatedWindowKeys = {};
+
+  Timer? _runner;
 
   List<ModeSchedule> get schedules {
     return List.unmodifiable(_sortedSchedules(_schedules));
@@ -20,6 +31,21 @@ class ModeScheduleService extends ChangeNotifier {
     return _sortedSchedules(
       _schedules.where((schedule) => schedule.modeId == modeId).toList(),
     );
+  }
+
+  void registerActivator(ModeId modeId, ModeScheduleActivator activator) {
+    _activators[modeId] = activator;
+  }
+
+  void startRunner() {
+    _runner?.cancel();
+    _checkSchedules();
+    _runner = Timer.periodic(_runnerInterval, (_) => _checkSchedules());
+  }
+
+  void stopRunner() {
+    _runner?.cancel();
+    _runner = null;
   }
 
   Future<void> load() async {
@@ -84,6 +110,83 @@ class ModeScheduleService extends ChangeNotifier {
 
     await preferences.setStringList(_schedulesKey, encodedSchedules);
     notifyListeners();
+    _checkSchedules();
+  }
+
+  Future<void> _checkSchedules() async {
+    final now = DateTime.now();
+
+    for (final schedule in _schedules) {
+      final activator = _activators[schedule.modeId];
+
+      if (activator == null) continue;
+
+      final window = _activeWindowFor(schedule, now);
+
+      if (window == null) continue;
+
+      final windowKey = '${schedule.id}:${window.start.toIso8601String()}';
+
+      if (_activatedWindowKeys[schedule.id] == windowKey) continue;
+
+      _activatedWindowKeys[schedule.id] = windowKey;
+      await activator(schedule, window.end.difference(now));
+    }
+  }
+
+  _ScheduleWindow? _activeWindowFor(ModeSchedule schedule, DateTime now) {
+    if (!schedule.enabled || schedule.weekdays.isEmpty) return null;
+
+    final currentMinutes = now.hour * 60 + now.minute;
+    final startMinutes = schedule.startTimeMinutes;
+    final endMinutes = schedule.endTimeMinutes;
+
+    if (startMinutes == endMinutes) return null;
+
+    if (startMinutes < endMinutes) {
+      if (!schedule.weekdays.contains(now.weekday)) return null;
+      if (currentMinutes < startMinutes || currentMinutes >= endMinutes) {
+        return null;
+      }
+
+      final start = _dateWithMinutes(now, startMinutes);
+      final end = _dateWithMinutes(now, endMinutes);
+
+      return _ScheduleWindow(start: start, end: end);
+    }
+
+    if (currentMinutes >= startMinutes &&
+        schedule.weekdays.contains(now.weekday)) {
+      final start = _dateWithMinutes(now, startMinutes);
+      final end = _dateWithMinutes(
+        now.add(const Duration(days: 1)),
+        endMinutes,
+      );
+
+      return _ScheduleWindow(start: start, end: end);
+    }
+
+    final previousDay = now.subtract(const Duration(days: 1));
+
+    if (currentMinutes < endMinutes &&
+        schedule.weekdays.contains(previousDay.weekday)) {
+      final start = _dateWithMinutes(previousDay, startMinutes);
+      final end = _dateWithMinutes(now, endMinutes);
+
+      return _ScheduleWindow(start: start, end: end);
+    }
+
+    return null;
+  }
+
+  DateTime _dateWithMinutes(DateTime date, int minutesAfterMidnight) {
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      minutesAfterMidnight ~/ 60,
+      minutesAfterMidnight % 60,
+    );
   }
 
   List<ModeSchedule> _decodeSchedules(List<String> encodedSchedules) {
@@ -126,4 +229,17 @@ class ModeScheduleService extends ChangeNotifier {
       return a.startTimeMinutes.compareTo(b.startTimeMinutes);
     });
   }
+
+  @override
+  void dispose() {
+    stopRunner();
+    super.dispose();
+  }
+}
+
+class _ScheduleWindow {
+  final DateTime start;
+  final DateTime end;
+
+  const _ScheduleWindow({required this.start, required this.end});
 }
