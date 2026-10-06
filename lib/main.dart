@@ -1,7 +1,8 @@
 import 'package:app_blocker/app_blocker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rest_for_more/screens/modes/focus.dart';
+// import 'package:rest_for_more/screens/modes/focus.dart';
+import 'package:rest_for_more/screens/modes/focus_moment_detail.dart';
 
 import 'screens/blocked_apps.dart';
 import 'screens/modes.dart';
@@ -41,9 +42,13 @@ final GoRouter router = GoRouter(
               path: '/modes',
               builder: (context, state) => const ModesScreen(),
               routes: [
+                // GoRoute(
+                //   path: 'focus',
+                //   builder: (context, state) => const FocusScreen(),
+                // ),
                 GoRoute(
                   path: 'focus',
-                  builder: (context, state) => const FocusScreen(),
+                  builder: (context, state) => const FocusMomentScreen(),
                 ),
               ],
             ),
