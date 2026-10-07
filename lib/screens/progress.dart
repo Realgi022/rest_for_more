@@ -18,7 +18,7 @@ class ProgressScreen extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text("This week's moments"),
+                const Text("This week's moments"),
                 const Spacer(),
                 IconButton(
                   onPressed: () {
@@ -49,7 +49,7 @@ class ProgressScreen extends StatelessWidget {
             Row(
               children: [
                 Text('Today', style: appTextTheme.headlineMedium),
-                Spacer(),
+                const Spacer(),
                 Text(
                   today.toString().substring(0, 10),
                   style: appTextTheme.bodyMedium,

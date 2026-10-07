@@ -410,7 +410,7 @@ class _ActiveTimerCard extends StatelessWidget {
                   ? Text(
                       'The timer has ended',
                       style: GoogleFonts.cormorantGaramond(
-                        fontSize: 40,
+                        fontSize: 20,
                         // color: const Color(0xFF4E3B31),
                       ),
                     )
