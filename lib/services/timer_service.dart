@@ -78,7 +78,7 @@ class FocusTimerService extends ChangeNotifier {
     _timer?.cancel();
 
     _timer = Timer.periodic(
-      const Duration(seconds: 1),
+      const Duration(milliseconds: 50),
       (_) {
         final end = _endTime;
 
@@ -87,6 +87,7 @@ class FocusTimerService extends ChangeNotifier {
         final difference = end.difference(DateTime.now());
 
         if (difference <= Duration.zero) {
+          remaining = Duration.zero;
           finishTimer();
           return;
         }

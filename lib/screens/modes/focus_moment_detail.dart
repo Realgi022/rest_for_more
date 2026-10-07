@@ -45,7 +45,6 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -366,8 +365,22 @@ class _ActiveTimerCard extends StatelessWidget {
               Stack(
                 alignment: Alignment.center,
                 children: [
+                  // GradientCircularProgressIndicator(
+                  //   value: progress,
+                  //   gradient: LinearGradient(
+                  //     colors: [
+                  //       theme.colorScheme.primary,
+                  //       theme.colorScheme.primary,
+                  //     ],
+                  //   ),
+                  //   backgroundColor: theme.colorScheme.onSurface.withValues(
+                  //     alpha: 0.12,
+                  //   ),
+                  //   size: 200,
+                  // ),
+
                   GradientCircularProgressIndicator(
-                    value: progress,
+                    value: progress.clamp(0.0, 1.0),
                     gradient: LinearGradient(
                       colors: [
                         theme.colorScheme.primary,
@@ -385,10 +398,8 @@ class _ActiveTimerCard extends StatelessWidget {
                       Text(
                         timer.hasEnded
                             ? 'Done'
-                            : formatDuration(timer.remaining),
-                        style: GoogleFonts.cormorantGaramond(
-                          fontSize: 30,
-                        ),
+                            : formatRemaining(timer.remaining),
+                        style: GoogleFonts.cormorantGaramond(fontSize: 30),
                       ),
                       Wrap(
                         crossAxisAlignment: WrapCrossAlignment.center,
@@ -523,11 +534,23 @@ class _PausedTimerControls extends StatelessWidget {
   }
 }
 
-String formatDuration(Duration duration) {
-  String hours = duration.inHours.toString().padLeft(2, '0');
-  String minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-  String seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-  return "$hours:$minutes:$seconds";
+// String formatDuration(Duration duration) {
+//   String hours = duration.inHours.toString().padLeft(2, '0');
+//   String minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+//   String seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+//   return "$hours:$minutes:$seconds";
+// }
+
+String formatRemaining(Duration duration) {
+  final totalSeconds = (duration.inMilliseconds / 1000).ceil();
+
+  final hours = totalSeconds ~/ 3600;
+  final minutes = (totalSeconds % 3600) ~/ 60;
+  final seconds = totalSeconds % 60;
+
+  return '${hours.toString().padLeft(2, '0')}:'
+      '${minutes.toString().padLeft(2, '0')}:'
+      '${seconds.toString().padLeft(2, '0')}';
 }
 
 String formatEndTime(DateTime time) {
