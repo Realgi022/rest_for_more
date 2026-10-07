@@ -140,6 +140,7 @@ class _InactiveTimerCardState extends State<_InactiveTimerCard> {
             secondsController: secondsController,
           ),
           const SizedBox(height: 32),
+
           ElevatedButton(
             onPressed: timer.startTimer,
             child: Text(
@@ -148,10 +149,23 @@ class _InactiveTimerCardState extends State<_InactiveTimerCard> {
               style: GoogleFonts.cormorantGaramond(
                 color: theme.colorScheme.onPrimary,
                 fontWeight: FontWeight.normal,
-                fontSize: 30,
+                fontSize: 20,
               ),
             ),
           ),
+
+          // ElevatedButton(
+          //   onPressed: timer.startTimer,
+          //   child: Text(
+          //     'Start',
+          //     textAlign: TextAlign.center,
+          //     style: GoogleFonts.cormorantGaramond(
+          //       color: theme.colorScheme.onPrimary,
+          //       fontWeight: FontWeight.normal,
+          //       fontSize: 20,
+          //     ),
+          //   ),
+          // ),
         ],
       ),
     );
@@ -365,20 +379,6 @@ class _ActiveTimerCard extends StatelessWidget {
               Stack(
                 alignment: Alignment.center,
                 children: [
-                  // GradientCircularProgressIndicator(
-                  //   value: progress,
-                  //   gradient: LinearGradient(
-                  //     colors: [
-                  //       theme.colorScheme.primary,
-                  //       theme.colorScheme.primary,
-                  //     ],
-                  //   ),
-                  //   backgroundColor: theme.colorScheme.onSurface.withValues(
-                  //     alpha: 0.12,
-                  //   ),
-                  //   size: 200,
-                  // ),
-
                   GradientCircularProgressIndicator(
                     value: progress.clamp(0.0, 1.0),
                     gradient: LinearGradient(
