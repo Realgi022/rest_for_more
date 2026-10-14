@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../localization/app_language.dart';
 import '../theme/app_typography.dart';
 import '../theme/app_spacing.dart';
 
@@ -10,7 +11,9 @@ class ProgressScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = context.t;
     final today = DateTime.now();
+    final weekdays = t.weekdayShort;
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(AppSpacing.gutter),
@@ -18,7 +21,7 @@ class ProgressScreen extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Text("This week's moments"),
+                Text(t.thisWeeksMoments),
                 const Spacer(),
                 IconButton(
                   onPressed: () {
@@ -34,13 +37,7 @@ class ProgressScreen extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Mo'),
-                      Text('Tu'),
-                      Text('We'),
-                      Text('Th'),
-                      Text('Fr'),
-                      Text('Sa'),
-                      Text('Su'),
+                      for (final day in weekdays) Text(day),
                     ],
                   ),
                 ),
@@ -48,7 +45,7 @@ class ProgressScreen extends StatelessWidget {
             ),
             Row(
               children: [
-                Text('Today', style: appTextTheme.headlineMedium),
+                Text(t.today, style: appTextTheme.headlineMedium),
                 const Spacer(),
                 Text(
                   today.toString().substring(0, 10),
@@ -57,7 +54,7 @@ class ProgressScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-            Text('Completed moments', style: theme.textTheme.headlineMedium),
+            Text(t.completedMoments, style: theme.textTheme.headlineMedium),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(AppSpacing.gutter),
@@ -75,8 +72,8 @@ class ProgressScreen extends StatelessWidget {
                     color: theme.colorScheme.primary,
                   ),
                   const SizedBox(width: 16),
-                  Text('Morning', style: theme.textTheme.bodyMedium),
-                  Spacer(),
+                  Text(t.morningMoment, style: theme.textTheme.bodyMedium),
+                  const Spacer(),
                   Text('25 min', style: theme.textTheme.bodySmall),
                 ],
               ),
@@ -84,13 +81,13 @@ class ProgressScreen extends StatelessWidget {
             const SizedBox(height: 24),
             Row(
               children: [
-                Text('Step completed', style: theme.textTheme.headlineMedium),
+                Text(t.stepCompleted, style: theme.textTheme.headlineMedium),
                 const Spacer(),
                 TextButton(
                   onPressed: () {
                     context.go('/allSteps');
                   },
-                  child: Text('See all steps'),
+                  child: Text(t.seeAllSteps),
                 ),
               ],
             ),
@@ -115,14 +112,14 @@ class ProgressScreen extends StatelessWidget {
                         color: theme.colorScheme.primary,
                       ),
                       const SizedBox(width: 16),
-                      Text("Today's step", style: theme.textTheme.bodyMedium),
+                      Text(t.todaysStep, style: theme.textTheme.bodyMedium),
                       const Spacer(),
-                      Text('Day 8', style: theme.textTheme.bodySmall),
+                      Text(t.day8, style: theme.textTheme.bodySmall),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'You drank 8 glasses of water today, great job!',
+                    t.waterStepDone,
                     style: theme.textTheme.bodyMedium,
                   ),
                 ],

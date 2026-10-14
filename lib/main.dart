@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 // import 'package:rest_for_more/screens/modes/focus.dart';
 import 'package:rest_for_more/screens/modes/focus_moment_detail.dart';
 
+import 'localization/app_language.dart';
 import 'screens/blocked_apps.dart';
 import 'screens/modes.dart';
 import 'screens/onboarding.dart'; 
@@ -103,6 +104,7 @@ final GoRouter router = GoRouter(
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await appLanguageController.load();
   await themeController.load();
   onboardingDone = await OnboardingFlow.isDone();
   runApp(const MyApp());
@@ -156,17 +158,26 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeController,
-      builder: (context, themeMode, child) {
-        return MaterialApp.router(
-          routerConfig: router,
-          theme: appTheme,
-          darkTheme: appDarkTheme,
-          themeMode: themeMode,
-          debugShowCheckedModeBanner: false,
-        );
-      },
+    return AppLanguageScope(
+      controller: appLanguageController,
+      child: ValueListenableBuilder<AppLanguage>(
+        valueListenable: appLanguageController,
+        builder: (context, language, child) {
+          return ValueListenableBuilder<ThemeMode>(
+            valueListenable: themeController,
+            builder: (context, themeMode, child) {
+              return MaterialApp.router(
+                locale: Locale(language.code),
+                routerConfig: router,
+                theme: appTheme,
+                darkTheme: appDarkTheme,
+                themeMode: themeMode,
+                debugShowCheckedModeBanner: false,
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
@@ -185,6 +196,8 @@ class MainScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.t;
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: navigationShell,
@@ -192,26 +205,26 @@ class MainScaffold extends StatelessWidget {
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
         onDestinationSelected: _onTap,
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.wb_sunny_outlined),
-            selectedIcon: Icon(Icons.wb_sunny),
-            label: 'Today',
+            icon: const Icon(Icons.wb_sunny_outlined),
+            selectedIcon: const Icon(Icons.wb_sunny),
+            label: t.today,
           ),
           NavigationDestination(
-            icon: Icon(Icons.insights_outlined),
-            selectedIcon: Icon(Icons.insights),
-            label: 'Modes',
+            icon: const Icon(Icons.insights_outlined),
+            selectedIcon: const Icon(Icons.insights),
+            label: t.modes,
           ),
           NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month),
-            label: 'Progress',
+            icon: const Icon(Icons.calendar_month_outlined),
+            selectedIcon: const Icon(Icons.calendar_month),
+            label: t.progress,
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings),
+            label: t.settings,
           ),
         ],
       ),

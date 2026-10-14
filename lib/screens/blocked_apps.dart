@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../localization/app_language.dart';
 import '../services/app_blocker_service.dart';
 import '../theme/app_spacing.dart';
 
@@ -49,7 +50,7 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
       if (!mounted) return;
 
       setState(() {
-        _error = 'Could not load installed apps.';
+        _error = context.t.couldNotLoadApps;
         _loading = false;
       });
     }
@@ -78,6 +79,7 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = context.t;
 
     return SafeArea(
       child: RefreshIndicator(
@@ -96,7 +98,7 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Blocked apps',
+                    t.blockedApps,
                     style: theme.textTheme.headlineMedium,
                   ),
                 ),
@@ -106,8 +108,8 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
             if (!AppBlockerService.isSupported)
               _InfoCard(
                 icon: Icons.android,
-                title: 'Android only',
-                message: 'App blocking is only available on Android devices.',
+                title: t.androidOnly,
+                message: t.androidOnlyMessage,
               )
             else ...[
               _PermissionCard(
@@ -117,7 +119,7 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                '${_blockedPackages.length} apps blocked',
+                t.appsBlocked(_blockedPackages.length),
                 style: theme.textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
@@ -129,14 +131,14 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
               else if (_error != null)
                 _InfoCard(
                   icon: Icons.error_outline,
-                  title: 'Something went wrong',
+                  title: t.somethingWentWrong,
                   message: _error!,
                 )
               else if (_apps.isEmpty)
-                const _InfoCard(
+                _InfoCard(
                   icon: Icons.apps_outlined,
-                  title: 'No apps found',
-                  message: 'Pull down to refresh the installed apps list.',
+                  title: t.noAppsFound,
+                  message: t.refreshAppsMessage,
                 )
               else
                 ..._apps.map((app) {
@@ -192,6 +194,7 @@ class _PermissionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = context.t;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -214,7 +217,7 @@ class _PermissionCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  enabled ? 'Blocking is enabled' : 'Enable app blocking',
+                  enabled ? t.blockingEnabled : t.enableAppBlocking,
                   style: theme.textTheme.titleMedium,
                 ),
               ),
@@ -222,7 +225,7 @@ class _PermissionCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            enabled ? 'Selected apps will be blocked when opened.' : 'Turn on the Rest For More accessibility service so Android can detect blocked apps.',
+            enabled ? t.blockingEnabledMessage : t.enableAppBlockingMessage,
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
@@ -230,13 +233,13 @@ class _PermissionCard extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onRefresh,
               icon: const Icon(Icons.refresh),
-              label: const Text('Refresh status'),
+              label: Text(t.refreshStatus),
             )
           else
             FilledButton.icon(
               onPressed: onEnable,
               icon: const Icon(Icons.settings_accessibility),
-              label: const Text('Open accessibility settings'),
+              label: Text(t.openAccessibilitySettings),
             ),
         ],
       ),

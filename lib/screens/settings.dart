@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../localization/app_language.dart';
 import '../theme/app_spacing.dart';
 import '../theme/theme_controller.dart';
 
@@ -10,18 +11,19 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = context.t;
 
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.gutter),
         child: ListView(
           children: [
-            Text('Settings', style: theme.textTheme.headlineMedium),
+            Text(t.settings, style: theme.textTheme.headlineMedium),
             const SizedBox(height: 24),
             _SettingsTile(
               icon: Icons.lock_outline,
-              title: 'Blocked apps',
-              description: 'Choose apps to block on this Android device.',
+              title: t.blockedApps,
+              description: t.blockedAppsDescription,
               trailing: Icon(
                 Icons.keyboard_arrow_right,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -40,12 +42,40 @@ class SettingsScreen extends StatelessWidget {
                   icon: nightModeOn
                       ? Icons.dark_mode
                       : Icons.dark_mode_outlined,
-                  title: 'Night Mode',
-                  description: 'Use darker colors for late-night rest.',
+                  title: t.nightMode,
+                  description: t.nightModeDescription,
                   trailing: Switch(
                     value: nightModeOn,
                     onChanged: (value) {
                       themeController.setNightMode(value);
+                    },
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            ValueListenableBuilder<AppLanguage>(
+              valueListenable: appLanguageController,
+              builder: (context, language, child) {
+                return _SettingsTile(
+                  icon: Icons.language,
+                  title: t.languageTitle,
+                  description: t.languageDescription,
+                  trailing: DropdownButton<AppLanguage>(
+                    value: language,
+                    underline: const SizedBox.shrink(),
+                    items: AppLanguage.values
+                        .map(
+                          (language) => DropdownMenuItem(
+                            value: language,
+                            child: Text(language.label),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (language) {
+                      if (language != null) {
+                        appLanguageController.setLanguage(language);
+                      }
                     },
                   ),
                 );

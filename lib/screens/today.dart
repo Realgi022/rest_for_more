@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../localization/app_language.dart';
 import '../theme/app_spacing.dart';
 
 class TodayScreen extends StatelessWidget {
@@ -7,6 +8,8 @@ class TodayScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.t;
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.gutter),
@@ -14,14 +17,14 @@ class TodayScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Today',
+              t.today,
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 24),
             Expanded(
               child: Center(
                 child: Text(
-                  'No tasks for today!',
+                  t.noTasksToday,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),

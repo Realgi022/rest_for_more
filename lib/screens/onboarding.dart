@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../localization/app_language.dart';
 
 const _bg = Color(0xFFFAF8F4);
 const _brown = Color(0xFF7B563D);
@@ -30,51 +31,46 @@ class _Step {
   final List<_Opt> options;
   final bool multi;
   final int columns;
-  const _Step(this.key, this.label, this.title, this.subtitle, this.options,
-      {this.multi = false, this.columns = 1});
+  const _Step(this.label, this.title, this.subtitle, this.options,
+      {required this.key, this.multi = false, this.columns = 1});
 }
 
-const _steps = <_Step>[
-  _Step('goal', 'Goal', 'What would you like to improve?',
-      'Choose the goal that feels most meaningful right now.', [
-    _Opt('Spend less time on my phone', Icons.phonelink_erase_outlined),
-    _Opt('Create more phone-free moments', Icons.wb_sunny_outlined),
-    _Opt('Improve my focus', Icons.center_focus_strong_outlined),
-    _Opt('Build a healthier routine', Icons.spa_outlined),
-  ]),
-  _Step('habits', 'Phone habits', 'When is it hardest to put your phone away?',
-      'This helps us suggest moments that fit naturally into your day.', [
-    _Opt('Morning', Icons.wb_sunny_outlined),
-    _Opt('Work/study', Icons.work_outline),
-    _Opt('Evening', Icons.wb_twilight),
-    _Opt('Before sleep', Icons.bedtime_outlined),
-  ]),
-  _Step('interests', 'Interests', 'What do you enjoy doing?',
-      "Select as many as you like. We'll use them to personalize your journey.", [
-    _Opt('Reading', Icons.menu_book_outlined),
-    _Opt('Walking', Icons.directions_walk),
-    _Opt('Music', Icons.headphones_outlined),
-    _Opt('Cooking', Icons.soup_kitchen_outlined),
-    _Opt('Exercise', Icons.fitness_center),
-    _Opt('Creative activities', Icons.palette_outlined),
-    _Opt('Relaxing', Icons.weekend_outlined),
-    _Opt('Spending time with others', Icons.people_outline),
-  ], multi: true, columns: 2),
-  _Step('time', 'Preferred time', 'When would you like more phone free time?',
-      "Pick the part of your day you'd most like to protect.", [
-    _Opt('Morning', Icons.wb_twilight),
-    _Opt('Afternoon', Icons.wb_sunny_outlined),
-    _Opt('Evening', Icons.wb_twilight),
-    _Opt('Before bed', Icons.bed_outlined),
-  ]),
-  _Step('duration', 'Duration', 'What feels achievable for you?',
-      'Start with an amount of time that feels gentle and realistic.', [
-    _Opt('15 minutes', Icons.timer_outlined),
-    _Opt('30 minutes', Icons.timer_outlined),
-    _Opt('45 minutes', Icons.timer_outlined),
-    _Opt('60 minutes', Icons.timer_outlined),
-  ], columns: 2),
-];
+List<_Step> _steps(AppStrings t) => [
+      _Step(t.goalLabel, t.goalTitle, t.goalSubtitle, [
+        _Opt(t.lessPhoneTime, Icons.phonelink_erase_outlined),
+        _Opt(t.phoneFreeMoments, Icons.wb_sunny_outlined),
+        _Opt(t.improveFocus, Icons.center_focus_strong_outlined),
+        _Opt(t.healthierRoutine, Icons.spa_outlined),
+      ], key: 'goal'),
+      _Step(t.phoneHabitsLabel, t.habitsTitle, t.habitsSubtitle, [
+        _Opt(t.morning, Icons.wb_sunny_outlined),
+        _Opt(t.workStudy, Icons.work_outline),
+        _Opt(t.evening, Icons.wb_twilight),
+        _Opt(t.beforeSleep, Icons.bedtime_outlined),
+      ], key: 'habits'),
+      _Step(t.interestsLabel, t.interestsTitle, t.interestsSubtitle, [
+        _Opt(t.reading, Icons.menu_book_outlined),
+        _Opt(t.walking, Icons.directions_walk),
+        _Opt(t.music, Icons.headphones_outlined),
+        _Opt(t.cooking, Icons.soup_kitchen_outlined),
+        _Opt(t.exercise, Icons.fitness_center),
+        _Opt(t.creativeActivities, Icons.palette_outlined),
+        _Opt(t.relaxing, Icons.weekend_outlined),
+        _Opt(t.timeWithOthers, Icons.people_outline),
+      ], key: 'interests', multi: true, columns: 2),
+      _Step(t.preferredTimeLabel, t.preferredTimeTitle, t.preferredTimeSubtitle, [
+        _Opt(t.morning, Icons.wb_twilight),
+        _Opt(t.afternoon, Icons.wb_sunny_outlined),
+        _Opt(t.evening, Icons.wb_twilight),
+        _Opt(t.beforeBed, Icons.bed_outlined),
+      ], key: 'time'),
+      _Step(t.durationLabel, t.durationTitle, t.durationSubtitle, [
+        _Opt(t.minutes(15), Icons.timer_outlined),
+        _Opt(t.minutes(30), Icons.timer_outlined),
+        _Opt(t.minutes(45), Icons.timer_outlined),
+        _Opt(t.minutes(60), Icons.timer_outlined),
+      ], key: 'duration', columns: 2),
+    ];
 
 
 class OnboardingFlow extends StatefulWidget {
@@ -93,7 +89,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   int _page = 0;
   final Map<String, Set<String>> _answers = {};
 
-  _Step get _step => _steps[_page - 1];
+  _Step get _step => _steps(context.t)[_page - 1];
   Set<String> _sel(String key) => _answers[key] ?? {};
 
   void _toggle(_Step s, String label) {
@@ -157,23 +153,23 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             width: 100,
           ),
           const SizedBox(height: 20),
-          Text('WELCOME TO REST FOR MORE',
+          Text(context.t.welcomeKicker,
               style: _sans(9, color: _brown, w: FontWeight.w600)),
           const SizedBox(height: 12),
-          Text("Let's create a plan that fits you.", style: _serif(34)),
+          Text(context.t.welcomeTitle, style: _serif(34)),
           const SizedBox(height: 14),
           Text(
-              "Answer a few quick questions about your routine and interests. We'll use your answers to create phone free activities that feel natural and achievable for you.",
+              context.t.welcomeBody,
               style: _sans(12, color: _textMuted).copyWith(height: 1.5)),
           const SizedBox(height: 22),
-          Text('5 quick steps · Takes about 1 minute',
+          Text(context.t.welcomeSteps,
               style: _sans(10, color: _textMuted)),
           const Spacer(),
           Center(
-              child: Text('You can adjust your preferences later.',
+              child: Text(context.t.preferencesLater,
                   style: _sans(10, color: _textMuted))),
           const SizedBox(height: 12),
-          _button('Get started', () => setState(() => _page = 1)),
+          _button(context.t.getStarted, () => setState(() => _page = 1)),
         ],
       );
 
@@ -191,7 +187,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   onTap: () => setState(() => _page--),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     const Icon(Icons.chevron_left, size: 16, color: _brown),
-                    Text('Back', style: _sans(11, color: _brown)),
+                    Text(context.t.back, style: _sans(11, color: _brown)),
                   ]),
                 )
               : null,
@@ -201,7 +197,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           children: [
             Text(s.label.toUpperCase(),
                 style: _sans(9, color: _brown, w: FontWeight.w600)),
-            Text('STEP $_page OF 5',
+            Text(context.t.stepOf(_page, 5),
                 style: _sans(9, color: _brown, w: FontWeight.w600)),
           ],
         ),
@@ -248,7 +244,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   ],
                 ),
         ),
-        _button('Continue', selected.isEmpty ? null : () => setState(() => _page++)),
+        _button(context.t.continueText, selected.isEmpty ? null : () => setState(() => _page++)),
       ],
     );
   }
@@ -305,10 +301,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   Widget _planReady() {
     String joined(String k) => _sel(k).join(', ');
     final rows = [
-      ('YOUR GOAL', joined('goal'), Icons.wb_sunny_outlined),
-      ('BEST TIME', joined('time'), Icons.wb_twilight),
-      ('ACTIVITIES', joined('interests'), Icons.menu_book_outlined),
-      ('YOUR RHYTHM', joined('duration'), Icons.timer_outlined),
+      (context.t.yourGoal, joined('goal'), Icons.wb_sunny_outlined),
+      (context.t.bestTime, joined('time'), Icons.wb_twilight),
+      (context.t.activities, joined('interests'), Icons.menu_book_outlined),
+      (context.t.yourRhythm, joined('duration'), Icons.timer_outlined),
     ];
     return Column(
       children: [
@@ -321,13 +317,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           child: const Icon(Icons.auto_awesome, color: _brown, size: 30),
         ),
         const SizedBox(height: 22),
-        Text('YOUR PERSONALIZED JOURNEY',
+        Text(context.t.planKicker,
             style: _sans(9, color: _brown, w: FontWeight.w600)),
         const SizedBox(height: 8),
-        Text('Your plan is ready', style: _serif(30)),
+        Text(context.t.planReady, style: _serif(30)),
         const SizedBox(height: 10),
         Text(
-          'Your daily activities are personalized from your answers, so each phone-free moment feels natural and achievable.',
+          context.t.planReadyBody,
           textAlign: TextAlign.center,
           style: _sans(11, color: _textMuted).copyWith(height: 1.5),
         ),
@@ -376,7 +372,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           ),
         ),
         const Spacer(),
-        _button('Begin my journey  →', _finish),
+        _button(context.t.beginJourney, _finish),
       ],
     );
   }

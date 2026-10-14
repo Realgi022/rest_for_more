@@ -2,6 +2,7 @@ import 'package:circle_time_progress/circle_time_progress.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:rest_for_more/localization/app_language.dart';
 import 'package:rest_for_more/services/timer_service.dart';
 
 class FocusMomentScreen extends StatefulWidget {
@@ -49,13 +50,13 @@ class _Header extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          "Focus",
+          context.t.focus,
           style: GoogleFonts.cormorantGaramond(
             fontSize: 40,
             fontWeight: FontWeight.bold,
           ),
         ),
-        Text("Focus moment timer", style: GoogleFonts.manrope(fontSize: 20)),
+        Text(context.t.focusMomentTimer, style: GoogleFonts.manrope(fontSize: 20)),
       ],
     );
   }
@@ -144,7 +145,7 @@ class _InactiveTimerCardState extends State<_InactiveTimerCard> {
           ElevatedButton(
             onPressed: timer.startTimer,
             child: Text(
-              'Start',
+              context.t.start,
               textAlign: TextAlign.center,
               style: GoogleFonts.cormorantGaramond(
                 color: theme.colorScheme.onPrimary,
@@ -190,19 +191,19 @@ class _DurationsPicker extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         _TimePickerColumn(
-          label: 'Hours',
+          label: context.t.hours,
           maxValue: 23,
           controller: hoursController,
           onChanged: timer.setHours,
         ),
         _TimePickerColumn(
-          label: 'Minutes',
+          label: context.t.minutesLabel,
           maxValue: 59,
           controller: minutesController,
           onChanged: timer.setMinutes,
         ),
         _TimePickerColumn(
-          label: 'Seconds',
+          label: context.t.seconds,
           maxValue: 59,
           controller: secondsController,
           onChanged: timer.setSeconds,
@@ -397,7 +398,7 @@ class _ActiveTimerCard extends StatelessWidget {
                     children: [
                       Text(
                         timer.hasEnded
-                            ? 'Done'
+                            ? context.t.done
                             : formatRemaining(timer.remaining),
                         style: GoogleFonts.cormorantGaramond(fontSize: 30),
                       ),
@@ -419,7 +420,7 @@ class _ActiveTimerCard extends StatelessWidget {
               const SizedBox(height: 32),
               timer.hasEnded
                   ? Text(
-                      'The timer has ended',
+                      context.t.timerEnded,
                       style: GoogleFonts.cormorantGaramond(
                         fontSize: 20,
                         // color: const Color(0xFF4E3B31),
@@ -464,7 +465,7 @@ class _ActiveTimerControls extends StatelessWidget {
             foregroundColor: theme.colorScheme.onSurface,
           ),
           child: Text(
-            'Cancel',
+            context.t.cancel,
             textAlign: TextAlign.center,
             style: GoogleFonts.cormorantGaramond(
               color: theme.colorScheme.onSurface,
@@ -476,7 +477,7 @@ class _ActiveTimerControls extends StatelessWidget {
         ElevatedButton(
           onPressed: timer.pauseTimer,
           child: Text(
-            'Pause',
+            context.t.pause,
             textAlign: TextAlign.center,
             style: GoogleFonts.cormorantGaramond(
               color: theme.colorScheme.onPrimary,
@@ -508,7 +509,7 @@ class _PausedTimerControls extends StatelessWidget {
             foregroundColor: theme.colorScheme.onSurface,
           ),
           child: Text(
-            'Cancel',
+            context.t.cancel,
             textAlign: TextAlign.center,
             style: GoogleFonts.cormorantGaramond(
               color: theme.colorScheme.onSurface,
@@ -520,7 +521,7 @@ class _PausedTimerControls extends StatelessWidget {
         ElevatedButton(
           onPressed: timer.resumeTimer,
           child: Text(
-            'Resume',
+            context.t.resume,
             textAlign: TextAlign.center,
             style: GoogleFonts.cormorantGaramond(
               color: theme.colorScheme.onPrimary,
