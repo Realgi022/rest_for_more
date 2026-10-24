@@ -1,5 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../localization/app_language.dart';
+
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
@@ -28,11 +30,12 @@ class NotificationService {
   // RUNNING TIMER
   static Future<void> showTimerNotification(Duration duration) async {
     final endTime = DateTime.now().add(duration);
+    final t = AppStrings(appLanguageController.value);
 
     final androidDetails = AndroidNotificationDetails(
       'active_timer',
-      'Active timer',
-      channelDescription: 'Shows the currently running timer',
+      t.activeTimer,
+      channelDescription: t.activeTimerDescription,
 
       importance: Importance.high,
       priority: Priority.high,
@@ -47,16 +50,16 @@ class NotificationService {
 
       timeoutAfter: duration.inMilliseconds,
 
-      actions: const [
+      actions: [
         AndroidNotificationAction(
           'pause_timer',
-          'Pause',
+          t.pause,
           showsUserInterface: true,
           cancelNotification: false,
         ),
         AndroidNotificationAction(
           'stop_timer',
-          'Stop',
+          t.stop,
           showsUserInterface: true,
           cancelNotification: false,
         ),
@@ -65,18 +68,20 @@ class NotificationService {
 
     await _notifications.show(
       id: 1001,
-      title: 'Focus timer',
-      body: 'Timer ${_formatTime(duration)}',
+      title: t.focusTimer,
+      body: t.timerDuration(_formatTime(duration)),
       notificationDetails: NotificationDetails(android: androidDetails),
     );
   }
 
   // PAUSED TIMER
   static Future<void> showPausedTimerNotification(Duration remaining) async {
+    final t = AppStrings(appLanguageController.value);
+
     final androidDetails = AndroidNotificationDetails(
       'active_timer',
-      'Active timer',
-      channelDescription: 'Shows the currently running timer',
+      t.activeTimer,
+      channelDescription: t.activeTimerDescription,
 
       importance: Importance.low,
       priority: Priority.low,
@@ -88,17 +93,17 @@ class NotificationService {
 
       category: AndroidNotificationCategory.alarm,
 
-      actions: const [
+      actions: [
         AndroidNotificationAction(
           'resume_timer',
-          'Resume',
+          t.resume,
           showsUserInterface: true,
           cancelNotification: false,
         ),
 
         AndroidNotificationAction(
           'stop_timer',
-          'Stop',
+          t.stop,
           showsUserInterface: true,
           cancelNotification: false,
         ),
@@ -108,7 +113,7 @@ class NotificationService {
     await _notifications.show(
       id: 1001,
       title: _formatTime(remaining),
-      body: 'Timer paused',
+      body: t.timerPaused,
       notificationDetails: NotificationDetails(android: androidDetails),
     );
   }

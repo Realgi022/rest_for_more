@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../localization/app_language.dart';
 import '../theme/app_spacing.dart';
 
 class ModesScreen extends StatelessWidget {
@@ -9,6 +10,7 @@ class ModesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = context.t;
 
     return SafeArea(
       child: Padding(
@@ -16,14 +18,14 @@ class ModesScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Modes', style: theme.textTheme.headlineMedium),
+            Text(t.modes, style: theme.textTheme.headlineMedium),
 
             const SizedBox(height: 24),
 
             _ModeTile(
               icon: Icons.work_outline,
-              label: 'Focus',
-              description: 'Block distractions and stay focused.',
+              label: t.focus,
+              description: t.focusDescription,
               onTap: () {
                 context.go('/modes/focus');
               },
@@ -33,8 +35,8 @@ class ModesScreen extends StatelessWidget {
 
             _ModeTile(
               icon: Icons.menu_book_outlined,
-              label: 'Reading',
-              description: 'Create a quiet environment for reading.',
+              label: t.reading,
+              description: t.readingDescription,
               onTap: () {},
             ),
 
@@ -42,8 +44,8 @@ class ModesScreen extends StatelessWidget {
 
             _ModeTile(
               icon: Icons.wb_twilight_outlined,
-              label: 'Evening',
-              description: 'Reduce distractions before going to sleep.',
+              label: t.evening,
+              description: t.eveningDescription,
               onTap: () {},
             ),
 
@@ -51,8 +53,8 @@ class ModesScreen extends StatelessWidget {
 
             _ModeTile(
               icon: Icons.wb_sunny_outlined,
-              label: 'Morning',
-              description: 'Start your day without unnecessary distractions.',
+              label: t.morning,
+              description: t.morningDescription,
               onTap: () {},
             ),
           ],
@@ -86,7 +88,9 @@ class _ModeTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
+          // color: theme.cardTheme.color,
           color: theme.colorScheme.secondary.withValues(alpha: 0.16),
+          // color: theme.colorScheme.secondary.withValues(alpha: 0.16),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.10),

@@ -181,7 +181,7 @@ class _FocusScreenState extends State<FocusScreen> {
     );
 
     if (shouldStop == true) {
-      timer.stopTimer();
+      timer.finishTimer();
     }
   }
 
