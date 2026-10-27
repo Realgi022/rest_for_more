@@ -7,12 +7,14 @@ import 'package:rest_for_more/screens/modes/focus_moment_detail.dart';
 import 'localization/app_language.dart';
 import 'screens/blocked_apps.dart';
 import 'screens/modes.dart';
-import 'screens/onboarding.dart'; 
+import 'screens/onboarding.dart';
 import 'screens/settings.dart';
 import 'screens/today.dart';
 import 'screens/progress.dart';
+import 'screens/all_steps.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
+
 bool onboardingDone = false;
 
 final GoRouter router = GoRouter(
@@ -98,6 +100,10 @@ final GoRouter router = GoRouter(
           ],
         ),
       ],
+    ),
+    GoRoute(
+      path: '/all-steps',
+      builder: (context, state) => const AllStepsScreen(),
     ),
   ],
 );

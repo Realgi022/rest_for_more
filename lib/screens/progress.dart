@@ -85,7 +85,7 @@ class ProgressScreen extends StatelessWidget {
                 const Spacer(),
                 TextButton(
                   onPressed: () {
-                    context.go('/allSteps');
+                    context.go('/all-steps');
                   },
                   child: Text(t.seeAllSteps),
                 ),
