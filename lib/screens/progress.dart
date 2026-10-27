@@ -108,7 +108,7 @@ class ProgressScreen extends StatelessWidget {
                   Row(
                     children: [
                       Icon(
-                        Icons.wb_sunny_outlined,
+                        Icons.water_drop_outlined,
                         color: theme.colorScheme.primary,
                       ),
                       const SizedBox(width: 16),

@@ -11,6 +11,7 @@ import 'screens/onboarding.dart';
 import 'screens/settings.dart';
 import 'screens/today.dart';
 import 'screens/progress.dart';
+import 'screens/calendar.dart';
 import 'screens/all_steps.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
@@ -82,6 +83,14 @@ final GoRouter router = GoRouter(
               path: '/progress',
               builder: (context, state) => const ProgressScreen(),
             ),
+            GoRoute(
+              path: '/calendar',
+              builder: (context, state) => const CalendarScreen(),
+            ),
+            GoRoute(
+              path: '/all-steps',
+              builder: (context, state) => const AllStepsScreen(),
+            ),
           ],
         ),
 
@@ -100,10 +109,6 @@ final GoRouter router = GoRouter(
           ],
         ),
       ],
-    ),
-    GoRoute(
-      path: '/all-steps',
-      builder: (context, state) => const AllStepsScreen(),
     ),
   ],
 );
