@@ -136,7 +136,7 @@ class _InactiveTimerCardState extends State<_InactiveTimerCard> {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
+        color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -156,10 +156,6 @@ class _InactiveTimerCardState extends State<_InactiveTimerCard> {
 
           ElevatedButton(
             onPressed: timer.startTimer,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.primary,
-              foregroundColor: colorScheme.onPrimary,
-            ),
             child: Text(
               context.t.start,
               textAlign: TextAlign.center,
@@ -363,8 +359,10 @@ class _ModeScheduleSection extends StatelessWidget {
                     ),
                   ),
                   if (schedule == null)
-                    IconButton.filled(
+                    IconButton(
                       onPressed: () => _openScheduleForm(context),
+                      color: colorScheme.primary,
+                      tooltip: 'Add schedule',
                       icon: const Icon(Icons.add),
                     ),
                 ],
