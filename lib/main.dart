@@ -1,7 +1,7 @@
 import 'package:app_blocker/app_blocker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-// import 'package:rest_for_more/screens/modes/focus.dart';
+import 'package:rest_for_more/models/mode_schedule.dart';
 import 'package:rest_for_more/screens/modes/focus_moment_detail.dart';
 
 import 'localization/app_language.dart';
@@ -13,6 +13,8 @@ import 'screens/today.dart';
 import 'screens/progress.dart';
 import 'screens/calendar.dart';
 import 'screens/all_steps.dart';
+import 'services/mode_schedule_service.dart';
+import 'services/timer_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 
@@ -64,10 +66,6 @@ final GoRouter router = GoRouter(
               path: '/modes',
               builder: (context, state) => const ModesScreen(),
               routes: [
-                // GoRoute(
-                //   path: 'focus',
-                //   builder: (context, state) => const FocusScreen(),
-                // ),
                 GoRoute(
                   path: 'focus',
                   builder: (context, state) => const FocusMomentScreen(),
@@ -120,6 +118,15 @@ Future<void> main() async {
   await appLanguageController.load();
   await themeController.load();
   onboardingDone = await OnboardingFlow.isDone();
+  await modeScheduleService.load();
+  modeScheduleService.registerActivator(ModeId.focus, (_, remaining) {
+    final timer = FocusTimerService.instance;
+
+    if (timer.timerStarted) return;
+
+    timer.startWithDuration(remaining);
+  });
+  modeScheduleService.startRunner();
   runApp(const MyApp());
 }
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 class FocusTimerService extends ChangeNotifier {
@@ -69,6 +70,19 @@ class FocusTimerService extends ChangeNotifier {
     _startCountdown();
   }
 
+  void startWithDuration(Duration duration) {
+    if (duration <= Duration.zero) {
+      return;
+    }
+
+    selectedHours = duration.inHours;
+    selectedMinutes = duration.inMinutes.remainder(60);
+    selectedSeconds = duration.inSeconds.remainder(60);
+    remaining = duration;
+
+    _startCountdown();
+  }
+
   void _startCountdown() {
     _endTime = DateTime.now().add(remaining);
 
@@ -77,26 +91,23 @@ class FocusTimerService extends ChangeNotifier {
 
     _timer?.cancel();
 
-    _timer = Timer.periodic(
-      const Duration(milliseconds: 50),
-      (_) {
-        final end = _endTime;
+    _timer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      final end = _endTime;
 
-        if (end == null) return;
+      if (end == null) return;
 
-        final difference = end.difference(DateTime.now());
+      final difference = end.difference(DateTime.now());
 
-        if (difference <= Duration.zero) {
-          remaining = Duration.zero;
-          finishTimer();
-          return;
-        }
+      if (difference <= Duration.zero) {
+        remaining = Duration.zero;
+        finishTimer();
+        return;
+      }
 
-        remaining = difference;
+      remaining = difference;
 
-        notifyListeners();
-      },
-    );
+      notifyListeners();
+    });
 
     notifyListeners();
   }
@@ -150,7 +161,7 @@ class FocusTimerService extends ChangeNotifier {
     _timer?.cancel();
     _endTime = null;
 
-        remaining = Duration.zero;
+    remaining = Duration.zero;
 
     isRunning = false;
     isPaused = false;
