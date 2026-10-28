@@ -82,14 +82,16 @@ final GoRouter router = GoRouter(
             GoRoute(
               path: '/progress',
               builder: (context, state) => const ProgressScreen(),
-            ),
-            GoRoute(
-              path: '/calendar',
-              builder: (context, state) => const CalendarScreen(),
-            ),
-            GoRoute(
-              path: '/all-steps',
-              builder: (context, state) => const AllStepsScreen(),
+              routes: [
+                GoRoute(
+                  path: 'calendar',
+                  builder: (context, state) => const CalendarScreen(),
+                ),
+                GoRoute(
+                  path: 'all-steps',
+                  builder: (context, state) => const AllStepsScreen(),
+                ),
+              ],
             ),
           ],
         ),

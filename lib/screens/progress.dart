@@ -25,7 +25,7 @@ class ProgressScreen extends StatelessWidget {
                 const Spacer(),
                 IconButton(
                   onPressed: () {
-                    context.go('/calendar');
+                    context.push('/progress/calendar');
                   },
                   icon: const Icon(Icons.calendar_month),
                 ),
@@ -85,7 +85,7 @@ class ProgressScreen extends StatelessWidget {
                 const Spacer(),
                 TextButton(
                   onPressed: () {
-                    context.go('/all-steps');
+                    context.push('/progress/all-steps');
                   },
                   child: Text(t.seeAllSteps),
                 ),
