@@ -6,6 +6,7 @@ import 'package:rest_for_more/localization/app_language.dart';
 import 'package:rest_for_more/models/mode_schedule.dart';
 import 'package:rest_for_more/services/mode_schedule_service.dart';
 import 'package:rest_for_more/services/timer_service.dart';
+import 'package:rest_for_more/services/time_format_controller.dart';
 
 class FocusMomentScreen extends StatefulWidget {
   const FocusMomentScreen({super.key});
@@ -20,7 +21,7 @@ class _FocusMomentScreenState extends State<FocusMomentScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: timer,
+      listenable: Listenable.merge([timer, timeFormatController]),
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(),
@@ -320,7 +321,7 @@ class _ModeScheduleSection extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return ListenableBuilder(
-      listenable: modeScheduleService,
+      listenable: Listenable.merge([modeScheduleService, timeFormatController]),
       builder: (context, _) {
         final schedules = modeScheduleService.schedulesFor(modeId);
         final schedule = schedules.isEmpty ? null : schedules.first;
@@ -424,8 +425,8 @@ class _ScheduleTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${_formatTimeMinutes(schedule.startTimeMinutes)} - '
-                      '${_formatTimeMinutes(schedule.endTimeMinutes)}',
+                      '${formatScheduleTime(_minutesToTimeOfDay(schedule.startTimeMinutes), use24HourTime: timeFormatController.value)} - '
+                      '${formatScheduleTime(_minutesToTimeOfDay(schedule.endTimeMinutes), use24HourTime: timeFormatController.value)}',
                       style: GoogleFonts.manrope(color: colorScheme.onSurface),
                     ),
                     const SizedBox(height: 4),
@@ -563,68 +564,83 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, bottomInset + 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.schedule == null
-                  ? 'Plan ${widget.modeId.label}'
-                  : 'Edit ${widget.modeId.label}',
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Days',
-              style: GoogleFonts.manrope(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: List.generate(7, (index) {
-                final weekday = index + 1;
-                final selected = _weekdays.contains(weekday);
-
-                return ChoiceChip(
-                  label: Text(_shortWeekdayName(weekday)),
-                  selected: selected,
-                  onSelected: (_) => _toggleWeekday(weekday),
-                );
-              }),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.play_arrow_outlined),
-              title: const Text('From'),
-              subtitle: Text(_startTime.format(context)),
-              onTap: _pickStartTime,
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.stop_outlined),
-              title: const Text('To'),
-              subtitle: Text(_endTime.format(context)),
-              onTap: _pickEndTime,
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _save,
-                child: Text(
-                  widget.schedule == null ? 'Save schedule' : 'Update schedule',
+    return ListenableBuilder(
+      listenable: timeFormatController,
+      builder: (context, _) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, bottomInset + 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.schedule == null
+                    ? 'Plan ${widget.modeId.label}'
+                    : 'Edit ${widget.modeId.label}',
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              Text(
+                'Days',
+                style: GoogleFonts.manrope(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: List.generate(7, (index) {
+                  final weekday = index + 1;
+                  final selected = _weekdays.contains(weekday);
+
+                  return ChoiceChip(
+                    label: Text(_shortWeekdayName(weekday)),
+                    selected: selected,
+                    onSelected: (_) => _toggleWeekday(weekday),
+                  );
+                }),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.play_arrow_outlined),
+                title: const Text('From'),
+                subtitle: Text(
+                  formatScheduleTime(
+                    _startTime,
+                    use24HourTime: timeFormatController.value,
+                  ),
+                ),
+                onTap: _pickStartTime,
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.stop_outlined),
+                title: const Text('To'),
+                subtitle: Text(
+                  formatScheduleTime(
+                    _endTime,
+                    use24HourTime: timeFormatController.value,
+                  ),
+                ),
+                onTap: _pickEndTime,
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _save,
+                  child: Text(
+                    widget.schedule == null
+                        ? 'Save schedule'
+                        : 'Update schedule',
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -687,11 +703,15 @@ class _ScrollableTimePickerSheetState
 
     final hourOfPeriod = widget.initialTime.hour % 12;
 
-    _hour = hourOfPeriod == 0 ? 12 : hourOfPeriod;
+    _hour = timeFormatController.value
+        ? widget.initialTime.hour
+        : (hourOfPeriod == 0 ? 12 : hourOfPeriod);
     _minute = widget.initialTime.minute;
     _isPm = widget.initialTime.hour >= 12;
 
-    _hourController = FixedExtentScrollController(initialItem: _hour - 1);
+    _hourController = FixedExtentScrollController(
+      initialItem: timeFormatController.value ? _hour : _hour - 1,
+    );
     _minuteController = FixedExtentScrollController(initialItem: _minute);
     _periodController = FixedExtentScrollController(initialItem: _isPm ? 1 : 0);
   }
@@ -711,6 +731,11 @@ class _ScrollableTimePickerSheetState
       initialTime: _selectedTime,
       initialEntryMode: TimePickerEntryMode.dial,
       switchToInputEntryModeIcon: const Icon(null),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(alwaysUse24HourFormat: timeFormatController.value),
+        child: child!,
+      ),
     );
 
     if (!mounted || selected == null) return;
@@ -719,6 +744,9 @@ class _ScrollableTimePickerSheetState
   }
 
   TimeOfDay get _selectedTime {
+    if (timeFormatController.value) {
+      return TimeOfDay(hour: _hour, minute: _minute);
+    }
     final hour24 = _isPm
         ? (_hour == 12 ? 12 : _hour + 12)
         : (_hour == 12 ? 0 : _hour);
@@ -760,11 +788,15 @@ class _ScrollableTimePickerSheetState
                 _ScheduleTimePickerColumn(
                   label: 'Hour',
                   controller: _hourController,
-                  itemCount: 12,
-                  itemBuilder: (index) => '${index + 1}',
+                  itemCount: timeFormatController.value ? 24 : 12,
+                  itemBuilder: (index) => timeFormatController.value
+                      ? index.toString().padLeft(2, '0')
+                      : '${index + 1}',
                   onChanged: (index) {
                     setState(() {
-                      _hour = (index % 12) + 1;
+                      _hour = timeFormatController.value
+                          ? index % 24
+                          : (index % 12) + 1;
                     });
                   },
                 ),
@@ -779,18 +811,19 @@ class _ScrollableTimePickerSheetState
                     });
                   },
                 ),
-                _ScheduleTimePickerColumn(
-                  label: 'Period',
-                  controller: _periodController,
-                  itemCount: 2,
-                  looping: false,
-                  itemBuilder: (index) => index == 0 ? 'AM' : 'PM',
-                  onChanged: (index) {
-                    setState(() {
-                      _isPm = index == 1;
-                    });
-                  },
-                ),
+                if (!timeFormatController.value)
+                  _ScheduleTimePickerColumn(
+                    label: 'Period',
+                    controller: _periodController,
+                    itemCount: 2,
+                    looping: false,
+                    itemBuilder: (index) => index == 0 ? 'AM' : 'PM',
+                    onChanged: (index) {
+                      setState(() {
+                        _isPm = index == 1;
+                      });
+                    },
+                  ),
               ],
             ),
             const SizedBox(height: 20),
@@ -800,7 +833,9 @@ class _ScrollableTimePickerSheetState
                 onPressed: () {
                   Navigator.pop(context, _selectedTime);
                 },
-                child: Text('Use ${_selectedTime.format(context)}'),
+                child: Text(
+                  'Use ${formatScheduleTime(_selectedTime, use24HourTime: timeFormatController.value)}',
+                ),
               ),
             ),
           ],
@@ -901,17 +936,6 @@ String _shortWeekdayName(int weekday) {
   const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   return names[weekday - 1];
-}
-
-String _formatTimeMinutes(int minutesAfterMidnight) {
-  final hour24 = minutesAfterMidnight ~/ 60;
-  final minuteValue = minutesAfterMidnight % 60;
-  final hourOfPeriod = hour24 % 12;
-  final hour = hourOfPeriod == 0 ? 12 : hourOfPeriod;
-  final minute = minuteValue.toString().padLeft(2, '0');
-  final period = hour24 < 12 ? 'AM' : 'PM';
-
-  return '$hour:$minute $period';
 }
 
 class _TimerPresets extends StatelessWidget {

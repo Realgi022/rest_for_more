@@ -15,6 +15,7 @@ import 'screens/calendar.dart';
 import 'screens/all_steps.dart';
 import 'services/mode_schedule_service.dart';
 import 'services/timer_service.dart';
+import 'services/time_format_controller.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 
@@ -117,6 +118,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await appLanguageController.load();
   await themeController.load();
+  await timeFormatController.load();
   onboardingDone = await OnboardingFlow.isDone();
   await modeScheduleService.load();
   modeScheduleService.registerActivator(ModeId.focus, (_, remaining) {
