@@ -117,61 +117,72 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
                 onEnable: _openAccessibilitySettings,
                 onRefresh: _load,
               ),
-              const SizedBox(height: 16),
-              Text(
-                t.appsBlocked(_blockedPackages.length),
-                style: theme.textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              if (_loading)
-                const Padding(
-                  padding: EdgeInsets.only(top: 32),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (_error != null)
-                _InfoCard(
-                  icon: Icons.error_outline,
-                  title: t.somethingWentWrong,
-                  message: _error!,
-                )
-              else if (_apps.isEmpty)
-                _InfoCard(
-                  icon: Icons.apps_outlined,
-                  title: t.noAppsFound,
-                  message: t.refreshAppsMessage,
-                )
-              else
-                ..._apps.map((app) {
-                  final blocked = _blockedPackages.contains(app.packageName);
 
-                  return Card(
-                    elevation: 0,
-                    color: theme.colorScheme.secondary.withValues(alpha: 0.16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                      side: BorderSide(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.10,
+              const SizedBox(height: 16),
+
+              if (!_loading && !_accessibilityEnabled) const _TutorialBlock(),
+
+              if (_accessibilityEnabled) ...[
+                Text(
+                  t.appsBlocked(_blockedPackages.length),
+                  style: theme.textTheme.titleMedium,
+                ),
+
+                const SizedBox(height: 8),
+
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 32),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_error != null)
+                  _InfoCard(
+                    icon: Icons.error_outline,
+                    title: t.somethingWentWrong,
+                    message: _error!,
+                  )
+                else if (_apps.isEmpty)
+                  _InfoCard(
+                    icon: Icons.apps_outlined,
+                    title: t.noAppsFound,
+                    message: t.refreshAppsMessage,
+                  )
+                else
+                  ..._apps.map((app) {
+                    final blocked = _blockedPackages.contains(app.packageName);
+
+                    return Card(
+                      elevation: 0,
+                      color: theme.colorScheme.secondary.withValues(
+                        alpha: 0.16,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        side: BorderSide(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.10,
+                          ),
                         ),
                       ),
-                    ),
-                    child: SwitchListTile(
-                      value: blocked,
-                      onChanged: (value) => _toggleApp(app.packageName, value),
-                      title: Text(app.label),
-                      subtitle: Text(app.packageName),
-                      secondary: CircleAvatar(
-                        backgroundColor: theme.colorScheme.primary.withValues(
-                          alpha: 0.18,
-                        ),
-                        child: Icon(
-                          blocked ? Icons.lock : Icons.lock_open_outlined,
-                          color: theme.colorScheme.primary,
+                      child: SwitchListTile(
+                        value: blocked,
+                        onChanged: (value) =>
+                            _toggleApp(app.packageName, value),
+                        title: Text(app.label),
+                        subtitle: Text(app.packageName),
+                        secondary: CircleAvatar(
+                          backgroundColor: theme.colorScheme.primary.withValues(
+                            alpha: 0.18,
+                          ),
+                          child: Icon(
+                            blocked ? Icons.lock : Icons.lock_open_outlined,
+                            color: theme.colorScheme.primary,
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                }),
+                    );
+                  }),
+              ],
             ],
           ],
         ),
@@ -282,6 +293,32 @@ class _InfoCard extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TutorialBlock extends StatelessWidget {
+  const _TutorialBlock();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondary.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('hello test'),
         ],
       ),
     );
