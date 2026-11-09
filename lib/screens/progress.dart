@@ -393,7 +393,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
             Text(t.stepCompleted, style: _serif(context, 24, color: pal.text)),
             const Spacer(),
             TextButton(
-              onPressed: () => context.go('/progress/allSteps'),
+              onPressed: () => context.push('/progress/all-steps'),
               style: TextButton.styleFrom(foregroundColor: pal.primary),
               child: Text(t.seeAllSteps),
             ),

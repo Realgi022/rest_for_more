@@ -1,18 +1,24 @@
 import 'package:app_blocker/app_blocker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-// import 'package:rest_for_more/screens/modes/focus.dart';
+import 'package:rest_for_more/models/mode_schedule.dart';
 import 'package:rest_for_more/screens/modes/focus_moment_detail.dart';
 
 import 'localization/app_language.dart';
 import 'screens/blocked_apps.dart';
 import 'screens/modes.dart';
-import 'screens/onboarding.dart'; 
+import 'screens/onboarding.dart';
 import 'screens/settings.dart';
 import 'screens/today.dart';
 import 'screens/progress.dart';
+import 'screens/calendar.dart';
+import 'screens/all_steps.dart';
+import 'services/mode_schedule_service.dart';
+import 'services/timer_service.dart';
+import 'services/time_format_controller.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
+
 bool onboardingDone = false;
 
 final GoRouter router = GoRouter(
@@ -61,10 +67,6 @@ final GoRouter router = GoRouter(
               path: '/modes',
               builder: (context, state) => const ModesScreen(),
               routes: [
-                // GoRoute(
-                //   path: 'focus',
-                //   builder: (context, state) => const FocusScreen(),
-                // ),
                 GoRoute(
                   path: 'focus',
                   builder: (context, state) => const FocusMomentScreen(),
@@ -79,6 +81,16 @@ final GoRouter router = GoRouter(
             GoRoute(
               path: '/progress',
               builder: (context, state) => const ProgressScreen(),
+              routes: [
+                GoRoute(
+                  path: 'calendar',
+                  builder: (context, state) => const CalendarScreen(),
+                ),
+                GoRoute(
+                  path: 'all-steps',
+                  builder: (context, state) => const AllStepsScreen(),
+                ),
+              ],
             ),
           ],
         ),
@@ -106,7 +118,17 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await appLanguageController.load();
   await themeController.load();
+  await timeFormatController.load();
   onboardingDone = await OnboardingFlow.isDone();
+  await modeScheduleService.load();
+  modeScheduleService.registerActivator(ModeId.focus, (_, remaining) {
+    final timer = FocusTimerService.instance;
+
+    if (timer.timerStarted) return;
+
+    timer.startWithDuration(remaining);
+  });
+  modeScheduleService.startRunner();
   runApp(const MyApp());
 }
 
