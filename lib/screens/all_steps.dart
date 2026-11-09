@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_card.dart';
 import '../theme/app_spacing.dart';
 
 class AllStepsScreen extends StatefulWidget {
@@ -174,12 +175,15 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
                   child: ListView.separated(
                     itemCount: monthlySteps.length,
                     separatorBuilder: (context, index) =>
-                        const SizedBox(height: AppSpacing.xxl),
+                        const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final step = monthlySteps[index];
                       final date = step['date'] as DateTime;
 
-                      return Column(
+                      return Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: appCardDecoration(context),
+                        child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
@@ -206,20 +210,12 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
 
                           const SizedBox(height: AppSpacing.md),
 
-                          Divider(
-                            height: 1,
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.2,
-                            ),
-                          ),
-
-                          const SizedBox(height: AppSpacing.md),
-
                           Text(
                             step['description'] as String,
                             style: theme.textTheme.bodyMedium,
                           ),
                         ],
+                        ),
                       );
                     },
                   ),

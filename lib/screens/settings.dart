@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../localization/app_language.dart';
 import '../services/time_format_controller.dart';
+import '../theme/app_card.dart';
 import '../theme/app_spacing.dart';
 import '../theme/theme_controller.dart';
 
@@ -131,18 +132,10 @@ class _SettingsTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       splashFactory: NoSplash.splashFactory,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(appCardRadius),
       child: Container(
         padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          // color: theme.cardTheme.color,
-          color: theme.colorScheme.secondary.withValues(alpha: 0.16),
-          // color: theme.colorScheme.secondary.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
-          ),
-        ),
+        decoration: appCardDecoration(context),
         child: Row(
           children: [
             Container(
@@ -159,7 +152,7 @@ class _SettingsTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: theme.textTheme.titleMedium),
+                  Text(title, style: theme.textTheme.headlineMedium?.copyWith(fontSize: 22)),
                   const SizedBox(height: 4),
                   Text(description, style: theme.textTheme.bodySmall),
                 ],
