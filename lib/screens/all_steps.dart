@@ -1,5 +1,7 @@
+
 import 'package:flutter/material.dart';
 
+import '../localization/app_language.dart';
 import '../theme/app_spacing.dart';
 
 class AllStepsScreen extends StatefulWidget {
@@ -14,75 +16,62 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
 
   void previousMonth() {
     setState(() {
-      selectedMonth = DateTime(selectedMonth.year, selectedMonth.month - 1);
+      selectedMonth = DateTime(
+        selectedMonth.year,
+        selectedMonth.month - 1,
+      );
     });
   }
 
   void nextMonth() {
-    final currentMonth = DateTime.now();
-
-    final isCurrentMonth =
-        selectedMonth.year == currentMonth.year &&
-        selectedMonth.month == currentMonth.month;
-
     if (isCurrentMonth) return;
 
     setState(() {
-      selectedMonth = DateTime(selectedMonth.year, selectedMonth.month + 1);
+      selectedMonth = DateTime(
+        selectedMonth.year,
+        selectedMonth.month + 1,
+      );
     });
   }
 
   bool get isCurrentMonth {
     final now = DateTime.now();
 
-    return selectedMonth.year == now.year && selectedMonth.month == now.month;
+    return selectedMonth.year == now.year &&
+        selectedMonth.month == now.month;
   }
-
-  String get monthLabel {
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-
-    return '${months[selectedMonth.month - 1]} ${selectedMonth.year}';
-  }
-
-  final List<Map<String, dynamic>>
-  completedSteps = //placeholder to be replaced with actual data
-  [
-    {
-      'icon': const Icon(Icons.water_drop),
-      'title': 'Step 3',
-      'date': DateTime.now(),
-      'description': 'You drank 8 glasses of water today. Great job!',
-    },
-    {
-      'icon': const Icon(Icons.chair),
-      'title': 'Step 2',
-      'description': 'Prepare for a restful night.',
-      'date': DateTime(2026, 9, 25),
-    },
-    {
-      'icon': const Icon(Icons.directions_walk),
-      'title': 'Step 1',
-      'description': 'Walk outside for 15 minutes.',
-      'date': DateTime(2026, 9, 21),
-    },
-  ];
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = context.t;
+
+    // Month names automatically change between NL and EN.
+    final monthLabel =
+        '${t.months[selectedMonth.month - 1]} ${selectedMonth.year}';
+
+    // Placeholder data - replace with actual completed steps later.
+    // Kept inside build so descriptions update when language changes.
+    final completedSteps = <Map<String, dynamic>>[
+      {
+        'icon': const Icon(Icons.water_drop),
+        'title': t.stepNumber(3),
+        'date': DateTime.now(),
+        'description': t.waterStepDone,
+      },
+      {
+        'icon': const Icon(Icons.chair),
+        'title': t.stepNumber(2),
+        'description': t.prepareForRestfulNight,
+        'date': DateTime(2026, 9, 25),
+      },
+      {
+        'icon': const Icon(Icons.directions_walk),
+        'title': t.stepNumber(1),
+        'description': t.walkOutsideFor15Minutes,
+        'date': DateTime(2026, 9, 21),
+      },
+    ];
 
     final monthlySteps = completedSteps.where((step) {
       final date = step['date'] as DateTime;
@@ -98,7 +87,10 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Completed steps', style: theme.textTheme.headlineMedium),
+              Text(
+                t.completedStepsTitle,
+                style: theme.textTheme.headlineMedium,
+              ),
 
               const SizedBox(height: AppSpacing.xl),
 
@@ -131,7 +123,12 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Image.asset('assets/Icon moon.png', width: 24, height: 24),
+                    Image.asset(
+                      'assets/Icon moon.png',
+                      width: 24,
+                      height: 24,
+                    ),
+
                     const SizedBox(width: AppSpacing.sm),
 
                     Flexible(
@@ -139,14 +136,15 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
                         TextSpan(
                           style: theme.textTheme.titleSmall,
                           children: [
-                            TextSpan(text: 'Go to '),
+                            TextSpan(text: t.goTo),
                             TextSpan(
-                              text: 'Today ',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              text: t.today,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             TextSpan(
-                              text:
-                                  'and complete your first step of the month.',
+                              text: t.completeFirstStepOfMonth,
                             ),
                           ],
                         ),
@@ -166,7 +164,7 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
                 const SizedBox(height: AppSpacing.sm),
 
                 Text(
-                  'Track your completed steps here.',
+                  t.trackCompletedStepsHere,
                   style: theme.textTheme.bodyMedium,
                 ),
               ] else ...[
@@ -174,19 +172,24 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
                   child: ListView.separated(
                     itemCount: monthlySteps.length,
                     separatorBuilder: (context, index) =>
-                        const SizedBox(height: AppSpacing.xxl),
+                        const SizedBox(
+                          height: AppSpacing.xxl,
+                        ),
                     itemBuilder: (context, index) {
                       final step = monthlySteps[index];
                       final date = step['date'] as DateTime;
 
                       return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
                               step['icon'] as Widget,
 
-                              const SizedBox(width: AppSpacing.sm),
+                              const SizedBox(
+                                width: AppSpacing.sm,
+                              ),
 
                               Expanded(
                                 child: Text(
@@ -195,7 +198,9 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
                                 ),
                               ),
 
-                              const SizedBox(width: AppSpacing.sm),
+                              const SizedBox(
+                                width: AppSpacing.sm,
+                              ),
 
                               Text(
                                 '${date.day}-${date.month}',
@@ -208,9 +213,8 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
 
                           Divider(
                             height: 1,
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.2,
-                            ),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.2),
                           ),
 
                           const SizedBox(height: AppSpacing.md),

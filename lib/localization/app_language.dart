@@ -64,19 +64,19 @@ class AppStrings {
   bool get _nl => language == AppLanguage.dutch;
 
   String get today => _nl ? 'Vandaag' : 'Today';
-  String get modes => _nl ? 'Modi' : 'Modes';
+  String get modes => _nl ? 'Modes' : 'Modes';
   String get progress => _nl ? 'Voortgang' : 'Progress';
   String get settings => _nl ? 'Instellingen' : 'Settings';
   String get noTasksToday => _nl ? 'Geen taken voor vandaag!' : 'No tasks for today!';
 
   String get blockedApps => _nl ? 'Geblokkeerde apps' : 'Blocked apps';
   String get blockedAppsDescription => _nl
-      ? 'Kies apps om te blokkeren op dit Android-apparaat.'
-      : 'Choose apps to block on this Android device.';
-  String get nightMode => _nl ? 'Nachtmodus' : 'Night Mode';
+      ? 'Kies apps om te blokkeren op dit apparaat.'
+      : 'Choose apps to block on this device.';
+  String get nightMode => _nl ? 'Nachtstand' : 'Night Mode';
   String get nightModeDescription => _nl
       ? 'Gebruik donkere kleuren voor rust laat op de avond.'
-      : 'Use darker colors for late-night rest.';
+      : 'Use darker colors for late night rest.';
   String get languageTitle => _nl ? 'Taal' : 'Language';
   String get languageDescription => _nl
       ? 'Kies de taal voor de app.'
@@ -103,6 +103,9 @@ class AppStrings {
   List<String> get weekdayShort => _nl
       ? const ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
       : const ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+    List<String> get months => _nl
+      ? const ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'september', 'Oktober', 'November', 'December',]
+      : const ['January','February','March','April','May','June','July','August','September','October','November','December',];
   String get completedMoments => _nl ? 'Voltooide momenten' : 'Completed moments';
   String get morningMoment => _nl ? 'Ochtend' : 'Morning';
   String get stepCompleted => _nl ? 'Stap voltooid' : 'Step completed';
@@ -117,7 +120,7 @@ class AppStrings {
   String get couldNotLoadApps => _nl ? 'Kon geïnstalleerde apps niet laden.' : 'Could not load installed apps.';
   String get androidOnly => _nl ? 'Alleen Android' : 'Android only';
   String get androidOnlyMessage => _nl
-      ? 'Apps blokkeren is alleen beschikbaar op Android-apparaten.'
+      ? 'Apps blokkeren is alleen beschikbaar op Android apparaten.'
       : 'App blocking is only available on Android devices.';
   String get somethingWentWrong => _nl ? 'Er is iets misgegaan' : 'Something went wrong';
   String get noAppsFound => _nl ? 'Geen apps gevonden' : 'No apps found';
@@ -138,8 +141,8 @@ class AppStrings {
   String get welcomeKicker => _nl ? 'WELKOM BIJ REST FOR MORE' : 'WELCOME TO REST FOR MORE';
   String get welcomeTitle => _nl ? 'Laten we een plan maken dat bij je past.' : "Let's create a plan that fits you.";
   String get welcomeBody => _nl
-      ? 'Beantwoord een paar korte vragen over je routine en interesses. We gebruiken je antwoorden om telefoonvrije activiteiten te maken die natuurlijk en haalbaar voelen.'
-      : "Answer a few quick questions about your routine and interests. We'll use your answers to create phone free activities that feel natural and achievable for you.";
+      ? 'Beantwoord een paar korte vragen over je routine en interesses. We gebruiken je antwoorden om telefoonvrije momenten te maken die natuurlijk en haalbaar voelen.'
+      : "Answer a few quick questions about your routine and interests. We'll use your answers to create phone free moments that feel natural and achievable for you.";
   String get welcomeSteps => _nl ? '5 korte stappen · Duurt ongeveer 1 minuut' : '5 quick steps · Takes about 1 minute';
   String get preferencesLater => _nl ? 'Je kunt je voorkeuren later aanpassen.' : 'You can adjust your preferences later.';
   String get getStarted => _nl ? 'Aan de slag' : 'Get started';
@@ -150,7 +153,7 @@ class AppStrings {
   String get planReady => _nl ? 'Je plan is klaar' : 'Your plan is ready';
   String get planReadyBody => _nl
       ? 'Je dagelijkse activiteiten zijn afgestemd op je antwoorden, zodat elk telefoonvrij moment natuurlijk en haalbaar voelt.'
-      : 'Your daily activities are personalized from your answers, so each phone-free moment feels natural and achievable.';
+      : 'Your daily activities are personalized from your answers, so each phone free moment feels natural and achievable.';
   String get beginJourney => _nl ? 'Begin mijn reis  →' : 'Begin my journey  →';
   String get yourGoal => _nl ? 'JOUW DOEL' : 'YOUR GOAL';
   String get bestTime => _nl ? 'BESTE TIJD' : 'BEST TIME';
@@ -189,7 +192,7 @@ class AppStrings {
   String get durationSubtitle => _nl ? 'Begin met een hoeveelheid tijd die zacht en realistisch voelt.' : 'Start with an amount of time that feels gentle and realistic.';
   String minutes(int count) => _nl ? '$count minuten' : '$count minutes';
 
-  String get focusMomentTimer => _nl ? 'Focusmoment-timer' : 'Focus moment timer';
+  String get focusMomentTimer => _nl ? 'Focusmoment timer' : 'Focus moment timer';
   String get start => _nl ? 'Start' : 'Start';
   String get hours => _nl ? 'Uren' : 'Hours';
   String get minutesLabel => _nl ? 'Minuten' : 'Minutes';
@@ -207,4 +210,54 @@ class AppStrings {
   String get focusTimer => _nl ? 'Focustimer' : 'Focus timer';
   String timerDuration(String duration) => _nl ? 'Timer $duration' : 'Timer $duration';
   String get timerPaused => _nl ? 'Timer gepauzeerd' : 'Timer paused';
+
+  // Focus scheduling translations.
+  String get plannedFocus => _nl ? 'Geplande focus' : 'Planned Focus';
+  String get chooseDaysAndTimeWindow => _nl
+      ? 'Kies dagen en een tijdsperiode.'
+      : 'Choose days and a time window.';
+  String get addSchedule => _nl ? 'Planning toevoegen' : 'Add schedule';
+  String get noSchedulesYet => _nl ? 'Nog geen planningen.' : 'No schedules yet.';
+  String get tapToEdit => _nl ? 'Tik om te bewerken' : 'Tap to edit';
+  String get startTime => _nl ? 'Starttijd' : 'Start time';
+  String get endTime => _nl ? 'Eindtijd' : 'End time';
+  String get chooseAtLeastOneDay => _nl
+      ? 'Kies minimaal één dag.'
+      : 'Choose at least one day.';
+  String get chooseDifferentStartEndTimes => _nl
+      ? 'Kies verschillende start- en eindtijden.'
+      : 'Choose different start and end times.';
+  String get planFocus => _nl ? 'Focus plannen' : 'Plan Focus';
+  String get editFocus => _nl ? 'Focusplanning bewerken' : 'Edit Focus';
+  String get days => _nl ? 'Dagen' : 'Days';
+  String get from => _nl ? 'Van' : 'From';
+  String get to => _nl ? 'Tot' : 'To';
+  String get saveSchedule => _nl ? 'Planning opslaan' : 'Save schedule';
+  String get updateSchedule => _nl ? 'Planning bijwerken' : 'Update schedule';
+  String get clock => _nl ? 'Klok' : 'Clock';
+  String get hour => _nl ? 'Uur' : 'Hour';
+  String get minute => _nl ? 'Minuut' : 'Minute';
+  String get period => _nl ? 'Dagdeel' : 'Period';
+  String useTime(String time) => _nl ? 'Gebruik $time' : 'Use $time';
+  String get everyDay => _nl ? 'Elke dag' : 'Every day';
+  String get scheduleWeekdays => _nl ? 'Doordeweeks' : 'Weekdays';
+  String get scheduleWeekends => _nl ? 'Weekenden' : 'Weekends';
+
+  // All Steps translations from the previous screen update.
+  String get completedStepsTitle =>
+      _nl ? 'Voltooide stappen' : 'Completed steps';
+  String stepNumber(int number) => _nl ? 'Stap $number' : 'Step $number';
+  String get prepareForRestfulNight => _nl
+      ? 'Bereid je voor op een goede nachtrust.'
+      : 'Prepare for a restful night.';
+  String get walkOutsideFor15Minutes => _nl
+      ? 'Ga 15 minuten buiten wandelen.'
+      : 'Walk outside for 15 minutes.';
+  String get goTo => _nl ? 'Ga naar ' : 'Go to ';
+  String get completeFirstStepOfMonth => _nl
+      ? ' en voltooi je eerste stap van de maand.'
+      : ' and complete your first step of the month.';
+  String get trackCompletedStepsHere => _nl
+      ? 'Bekijk hier je voltooide stappen.'
+      : 'Track your completed steps here.';
 }
