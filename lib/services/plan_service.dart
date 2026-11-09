@@ -119,9 +119,7 @@ class PlanService {
     final days = <PlanDay>[];
     for (var d = 1; d <= total; d++) {
       final i = d - 1;
-      final factor = d <= total * 0.2 ? 0.5 : (d <= total * 0.5 ? 0.75 : 1.0);
-      var minutes = ((base * factor) / 5).round() * 5;
-      if (minutes < 5) minutes = 5;
+      final minutes = base; 
 
       final round = i ~/ cats.length;
       final cat = cats[i % cats.length];

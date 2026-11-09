@@ -62,26 +62,33 @@ class _Pal {
       this.muted, this.line);
 
   static _Pal of(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return dark
-        ? const _Pal(
-            Color(0xFF4E3B31), // kart
-            Color(0xFF5E4a3E), // görsel alanı
-            Color(0xFFD8B79B), // vurgu
-            Color(0xFF2A1F19),
-            Color(0xFFF3EDE4),
-            Color(0xFFBDA999),
-            Color(0xFF6A5546),
-          )
-        : const _Pal(
-            Color(0xFFEBE6DA),
-            Color(0xFFF4F0E7),
-            Color(0xFF7B563D),
-            Colors.white,
-            Color(0xFF4E3B31),
-            Color(0xFF8E7B6C),
-            Color(0xFFD9D0BF),
-          );
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    if (dark) {
+      // Koyu temada kartlar zeminle aynı renge düşmesin diye
+      // sayfanın arka planına beyaz karıştırarak türetilir.
+      final bg = theme.scaffoldBackgroundColor;
+      Color lift(double a) =>
+          Color.alphaBlend(Colors.white.withValues(alpha: a), bg);
+      return _Pal(
+        lift(0.10), // kart
+        lift(0.17), // görsel alanı
+        const Color(0xFFD8B79B), // vurgu
+        const Color(0xFF2A1F19),
+        const Color(0xFFF3EDE4),
+        const Color(0xFFBDA999),
+        lift(0.26), // çizgi
+      );
+    }
+    return const _Pal(
+      Color(0xFFEBE6DA),
+      Color(0xFFF4F0E7),
+      Color(0xFF7B563D),
+      Colors.white,
+      Color(0xFF4E3B31),
+      Color(0xFF8E7B6C),
+      Color(0xFFD9D0BF),
+    );
   }
 }
 
@@ -740,7 +747,9 @@ class _Shell extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-          color: pal.card, borderRadius: BorderRadius.circular(24)),
+          color: pal.card,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: pal.line)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
     );
   }
