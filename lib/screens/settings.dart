@@ -66,7 +66,7 @@ class SettingsScreen extends StatelessWidget {
                   underline: const SizedBox.shrink(),
                   items: const [
                     DropdownMenuItem(value: false, child: Text('AM/PM')),
-                    DropdownMenuItem(value: true, child: Text('00–23')),
+                    DropdownMenuItem(value: true, child: Text('00:00/23:59')),
                   ],
                   onChanged: (value) {
                     if (value != null) timeFormatController.setUse24HourTime(value);

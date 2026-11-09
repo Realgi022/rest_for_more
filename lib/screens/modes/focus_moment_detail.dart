@@ -575,8 +575,8 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
             children: [
               Text(
                 widget.schedule == null
-                    ? 'Plan ${widget.modeId.label}'
-                    : 'Edit ${widget.modeId.label}',
+                    ? context.t.planFocus
+                    : context.t.editFocus,
                 style: GoogleFonts.cormorantGaramond(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -584,7 +584,7 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
               ),
               const SizedBox(height: 20),
               Text(
-                'Days',
+                context.t.days,
                 style: GoogleFonts.manrope(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
@@ -596,7 +596,7 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
                   final selected = _weekdays.contains(weekday);
 
                   return ChoiceChip(
-                    label: Text(_shortWeekdayName(weekday)),
+                    label: Text(context.t.weekdayShort[weekday - 1]),
                     selected: selected,
                     onSelected: (_) => _toggleWeekday(weekday),
                   );
@@ -606,7 +606,7 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.play_arrow_outlined),
-                title: const Text('From'),
+                title: Text(context.t.from),
                 subtitle: Text(
                   formatScheduleTime(
                     _startTime,
@@ -618,7 +618,7 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.stop_outlined),
-                title: const Text('To'),
+                title: Text(context.t.to),
                 subtitle: Text(
                   formatScheduleTime(
                     _endTime,
@@ -634,8 +634,8 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
                   onPressed: _save,
                   child: Text(
                     widget.schedule == null
-                        ? 'Save schedule'
-                        : 'Update schedule',
+                        ? context.t.saveSchedule
+                        : context.t.updateSchedule,
                   ),
                 ),
               ),
@@ -813,7 +813,7 @@ class _ScrollableTimePickerSheetState
                 ),
                 if (!timeFormatController.value)
                   _ScheduleTimePickerColumn(
-                    label: 'Period',
+                    label: context.t.period,
                     controller: _periodController,
                     itemCount: 2,
                     looping: false,
@@ -834,7 +834,12 @@ class _ScrollableTimePickerSheetState
                   Navigator.pop(context, _selectedTime);
                 },
                 child: Text(
-                  'Use ${formatScheduleTime(_selectedTime, use24HourTime: timeFormatController.value)}',
+                  context.t.useTime(
+                    formatScheduleTime(
+                      _selectedTime,
+                      use24HourTime: timeFormatController.value,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -932,11 +937,6 @@ bool _sameWeekdays(List<int> weekdays, List<int> expected) {
   return true;
 }
 
-String _shortWeekdayName(int weekday) {
-  const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-  return names[weekday - 1];
-}
 
 class _TimerPresets extends StatelessWidget {
   final FixedExtentScrollController hoursController;
