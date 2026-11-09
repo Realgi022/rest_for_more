@@ -78,7 +78,7 @@ class AppStrings {
       ? 'Gebruik donkere kleuren voor rust laat op de avond.'
       : 'Use darker colors for late night rest.';
   String get languageTitle => _nl ? 'Taal' : 'Language';
-  String get timeFormatTitle => _nl ? 'Tijdnotatie' : 'Time format';
+  String get timeFormatTitle => _nl ? 'Tijd format' : 'Time format';
   String get timeFormatDescription => _nl
       ? 'Kies de tijdnotatie voor geplande focus.'
       : 'Choose the time format for planned focus.';
