@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../localization/app_language.dart';
+import '../services/time_format_controller.dart';
 import '../theme/app_spacing.dart';
 import '../theme/theme_controller.dart';
 
@@ -52,6 +53,26 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 );
               },
+            ),
+            const SizedBox(height: 12),
+            ValueListenableBuilder<bool>(
+              valueListenable: timeFormatController,
+              builder: (context, use24HourTime, child) => _SettingsTile(
+                icon: Icons.access_time,
+                title: t.timeFormatTitle,
+                description: t.timeFormatDescription,
+                trailing: DropdownButton<bool>(
+                  value: use24HourTime,
+                  underline: const SizedBox.shrink(),
+                  items: const [
+                    DropdownMenuItem(value: false, child: Text('AM/PM')),
+                    DropdownMenuItem(value: true, child: Text('00–23')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) timeFormatController.setUse24HourTime(value);
+                  },
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             ValueListenableBuilder<AppLanguage>(
