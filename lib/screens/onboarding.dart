@@ -1,12 +1,3 @@
-// Rest for More - onboarding flow (single file)
-//
-// pubspec.yaml dependencies needed:
-//   google_fonts: ^6.2.1
-//   shared_preferences: ^2.3.2
-//
-// Use: OnboardingFlow(onFinished: (answers) => context.go('/'))
-// Check on app start: await OnboardingFlow.isDone()
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../localization/app_language.dart';
 import '../services/plan_service.dart';
 
-// ---------- Theme (swap these if your team already has a theme file) ----------
 const _bg = Color(0xFFFAF8F4);
 const _brown = Color(0xFF7A5A40);
 const _selectedFill = Color(0xFFE8DEC9);
@@ -23,7 +13,6 @@ const _border = Color(0xFFECE5D9);
 const _textDark = Color(0xFF4A3426);
 const _textMuted = Color(0xFF9A8B7C);
 
-// Tüm yazıları buradan büyütüp küçültebilirsin (1.0 = eski boyut)
 const _fs = 1.25;
 
 TextStyle _serif(double size, {Color color = _textDark}) =>
@@ -171,7 +160,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     );
   }
 
-  // Welcome ve plan ekranı küçük ekranda taşmasın diye kaydırılabilir
   Widget _scroll(Widget child) => LayoutBuilder(
         builder: (context, c) => SingleChildScrollView(
           child: ConstrainedBox(
@@ -181,7 +169,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         ),
       );
 
-  // "Custom" seçilince çıkan gün kaydırıcısı (3-30)
   Widget _customSlider() => Padding(
         padding: const EdgeInsets.only(bottom: 16),
         child: Column(children: [
@@ -220,7 +207,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               context.t.welcomeBody,
               style: _sans(12, color: _textMuted).copyWith(height: 1.5)),
           const SizedBox(height: 22),
-          Text(context.t.welcomeSteps,
+          Text(context.t.welcomeSteps.replaceAll('5', '$_total'),
               style: _sans(10, color: _textMuted)),
           const Spacer(),
           Center(
