@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -42,6 +43,10 @@ const _short = <String, String>{
 };
 
 const _boxName = 'RestNest';
+
+/// Verandert telkens als het plan wijzigt, zodat Today en Progress elkaar bijwerken
+final ValueNotifier<int> _planTick = ValueNotifier<int>(0);
+void _planChanged() => _planTick.value++;
 
 String _mmss(Duration d) {
   if (d.isNegative) d = Duration.zero;
@@ -119,7 +124,12 @@ class _ProgressScreenState extends State<ProgressScreen> {
   @override
   void initState() {
     super.initState();
+    _planTick.addListener(_onTick);
     _load();
+  }
+
+  void _onTick() {
+    if (mounted) _load();
   }
 
   MomentSession? _active;
@@ -168,6 +178,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   @override
   void dispose() {
+    _planTick.removeListener(_onTick);
     _ticker?.cancel();
     super.dispose();
   }
@@ -193,6 +204,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
     }
     // Geri gidildiyse sayaç arka planda devam eder, burada yeniden okunur
     await _load();
+    _planChanged();
   }
 
   void _openCalendar(PlanData plan, _Pal pal) {
@@ -271,6 +283,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   await PlanService.debugSeedProgress();
                   setState(() => _selected = null);
                   await _load();
+                  _planChanged();
                 },
                 child: const Text('Demo: show days 1–4 as done, start at day 5'),
               ),
@@ -326,6 +339,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
               onLongPress: () async {
                 await PlanService.debugNextDay();
                 await _load();
+                _planChanged();
               },
               // Diğer sayfaların başlıklarıyla aynı boyutta olsun
               child: MediaQuery(
@@ -469,6 +483,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
           if (_active != null) return; // sayaç çalışırken hedef değişmez
           await PlanService.setGoal(d, m);
           await _load();
+          _planChanged();
         },
       );
     }
@@ -808,6 +823,16 @@ class _TodayCard extends StatelessWidget {
       required this.onGoal,
       this.active});
 
+  Future<void> _pickCustom(BuildContext context) async {
+    final m = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: pal.hero,
+      builder: (ctx) => _GoalSheet(pal: pal, minutes: minutes),
+    );
+    if (m != null) onGoal(m);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -907,10 +932,195 @@ class _TodayCard extends StatelessWidget {
                   ],
                 ],
               ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () => _pickCustom(context),
+                child: Container(
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const [15, 30, 45].contains(minutes)
+                        ? pal.hero
+                        : pal.primary,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.alarm,
+                          size: 16,
+                          color: const [15, 30, 45].contains(minutes)
+                              ? pal.text
+                              : pal.onPrimary),
+                      const SizedBox(width: 8),
+                      Text(
+                          const [15, 30, 45].contains(minutes)
+                              ? 'Set your own time'
+                              : 'Your time: ${_fmtMin(minutes)} · change',
+                          style: _sans(context, 12,
+                              color: const [15, 30, 45].contains(minutes)
+                                  ? pal.text
+                                  : pal.onPrimary,
+                              w: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+String _fmtMin(int m) {
+  if (m < 60) return '$m min';
+  final h = m ~/ 60, r = m % 60;
+  return r == 0 ? '$h h' : '$h h $r min';
+}
+
+/// Kendi süreni seç: alarm kurar gibi saat + dakika tekerlekleri.
+/// En az 15 dk, en çok 3 saat; dakikalar 5'er 5'er.
+class _GoalSheet extends StatefulWidget {
+  final _Pal pal;
+  final int minutes;
+  const _GoalSheet({required this.pal, required this.minutes});
+
+  static const int minMin = 15, maxMin = 180;
+
+  @override
+  State<_GoalSheet> createState() => _GoalSheetState();
+}
+
+class _GoalSheetState extends State<_GoalSheet> {
+  late int _h; // saat 0-3
+  late int _m; // dakika sırası: 0 = 00 ... 11 = 55
+  late final FixedExtentScrollController _hc;
+  late final FixedExtentScrollController _mc;
+
+  int get _total => _h * 60 + _m * 5;
+
+  void _setFrom(int total) {
+    final c = total.clamp(_GoalSheet.minMin, _GoalSheet.maxMin);
+    _h = c ~/ 60;
+    _m = (c % 60) ~/ 5;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _setFrom(widget.minutes);
+    _hc = FixedExtentScrollController(initialItem: _h);
+    _mc = FixedExtentScrollController(initialItem: _m);
+  }
+
+  @override
+  void dispose() {
+    _hc.dispose();
+    _mc.dispose();
+    super.dispose();
+  }
+
+  // Tekerlekler durunca sınır dışıysa en yakın geçerli süreye getir.
+  void _settle() {
+    final c = _total.clamp(_GoalSheet.minMin, _GoalSheet.maxMin);
+    if (c != _total) {
+      _setFrom(c);
+      _hc.animateToItem(_h,
+          duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+      _mc.animateToItem(_m,
+          duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+    }
+    setState(() {});
+  }
+
+  Widget _wheel(FixedExtentScrollController c, int count,
+      String Function(int) text, ValueChanged<int> onChange) {
+    final pal = widget.pal;
+    return Expanded(
+      child: CupertinoPicker(
+        scrollController: c,
+        itemExtent: 38,
+        backgroundColor: Colors.transparent,
+        selectionOverlay: Container(
+          decoration: BoxDecoration(
+            color: pal.primary.withAlpha(30),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: pal.line),
+          ),
+        ),
+        onSelectedItemChanged: onChange,
+        children: [
+          for (var i = 0; i < count; i++)
+            Center(
+                child: Text(text(i),
+                    style: _serif(context, 22, color: pal.text))),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = widget.pal;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Set your own time', style: _serif(context, 24, color: pal.text)),
+            const SizedBox(height: 4),
+            Text('Between 15 min and 3 h',
+                style: _sans(context, 11, color: pal.muted)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 150,
+              child: NotificationListener<ScrollEndNotification>(
+                onNotification: (_) {
+                  _settle();
+                  return false;
+                },
+                child: Row(
+                  children: [
+                    _wheel(_hc, 4, (i) => '$i h', (i) => _h = i),
+                    _wheel(
+                        _mc,
+                        12,
+                        (i) => '${(i * 5).toString().padLeft(2, '0')} min',
+                        (i) => _m = i),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    style: TextButton.styleFrom(foregroundColor: pal.muted),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: _PrimaryButton(
+                    pal: pal,
+                    label: 'Save ${_fmtMin(_total.clamp(_GoalSheet.minMin, _GoalSheet.maxMin))}',
+                    icon: Icons.check,
+                    onTap: () => Navigator.pop(
+                        context,
+                        _total.clamp(_GoalSheet.minMin, _GoalSheet.maxMin)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1389,4 +1599,285 @@ class _RingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RingPainter old) => old.progress != progress;
+}
+
+// ───────────────────────── Today-pagina ─────────────────────────
+
+const _tips = <String>[
+  'Put your phone in another room while you do this.',
+  'A little time away makes room for more.',
+  'Keep something nice where you usually keep your phone.',
+  'Start small. A slow moment counts as much as a long one.',
+  'Turn on Do Not Disturb before you begin.',
+  'Notice how you feel when you are done.',
+];
+
+/// Inhoud van de Today-pagina: dagbalk, activiteitskaart en een tip.
+/// Gebruik in today.dart: const TodayActivity()
+class TodayActivity extends StatefulWidget {
+  const TodayActivity({super.key});
+
+  @override
+  State<TodayActivity> createState() => _TodayActivityState();
+}
+
+class _TodayActivityState extends State<TodayActivity> {
+  PlanData? _plan;
+  MomentSession? _active;
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _planTick.addListener(_onTick);
+    _load();
+  }
+
+  void _onTick() {
+    if (mounted) _load();
+  }
+
+  @override
+  void dispose() {
+    _planTick.removeListener(_onTick);
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    var plan = await PlanService.load();
+    var active = await PlanService.activeMoment();
+    if (active != null && !DateTime.now().isBefore(active.end)) {
+      if (!plan.completed.contains(active.day)) {
+        await PlanService.complete(active.day, minutes: active.minutes);
+      }
+      await PlanService.clearMoment();
+      active = null;
+      plan = await PlanService.load();
+    }
+    if (!mounted) return;
+    setState(() {
+      _plan = plan;
+      _active = active;
+    });
+    _ticker?.cancel();
+    _ticker = null;
+    if (active != null) {
+      _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        final a = _active;
+        if (a != null && !DateTime.now().isBefore(a.end)) {
+          _load();
+        } else {
+          setState(() {});
+        }
+      });
+    }
+  }
+
+  Future<void> _openMoment(PlanData plan, PlanDay day) async {
+    final running = _active != null && _active!.day == day.day ? _active : null;
+    final minutes = running?.minutes ?? plan.minutesFor(day.day);
+    final result = await Navigator.of(context).push<int>(
+      MaterialPageRoute(
+        builder: (_) => _MomentScreen(
+          dayNumber: day.day,
+          minutes: minutes,
+          title: _momentTitle(day, minutes),
+          description: day.step.description,
+          timeOfDay: plan.timeOfDay,
+          resume: running,
+        ),
+      ),
+    );
+    if (result != null) {
+      await PlanService.complete(day.day, minutes: result);
+      await PlanService.clearMoment();
+    }
+    await _load();
+    _planChanged();
+  }
+
+  Future<void> _changeTime(PlanData plan, int day, int minutes, _Pal pal) async {
+    final m = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: pal.hero,
+      builder: (ctx) => _GoalSheet(pal: pal, minutes: minutes),
+    );
+    if (m != null) {
+      await PlanService.setGoal(day, m);
+      await _load();
+      _planChanged();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final plan = _plan;
+    if (plan == null) {
+      return const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    final pal = _Pal.of(context);
+    final d = plan.currentDay.clamp(1, plan.total);
+    final day = plan.days[d - 1];
+    final done = plan.completed.contains(d);
+    final minutes = done ? (plan.minutesDone[d] ?? plan.minutesFor(d)) : plan.minutesFor(d);
+    final running = _active != null && _active!.day == d ? _active : null;
+    final tip = _tips[d % _tips.length];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Dagbalk
+        Row(
+          children: [
+            Text('Day $d of ${plan.total}',
+                style: _sans(context, 13, color: pal.text, w: FontWeight.w600)),
+            const Spacer(),
+            Text('YOUR ${plan.total}-DAY PLAN',
+                style: _sans(context, 9, color: pal.muted, w: FontWeight.w600, ls: 1)),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            for (var i = 1; i <= plan.total; i++) ...[
+              Expanded(
+                child: Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: plan.completed.contains(i)
+                        ? pal.primary
+                        : (i == d ? pal.primary.withAlpha(110) : pal.line),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              if (i != plan.total) const SizedBox(width: 3),
+            ],
+          ],
+        ),
+        const SizedBox(height: 20),
+
+        // Activiteitskaart
+        _Shell(
+          pal: pal,
+          children: [
+            Stack(
+              children: [
+                done
+                    ? Container(
+                        height: 150,
+                        width: double.infinity,
+                        color: pal.hero,
+                        alignment: Alignment.center,
+                        child: Container(
+                          width: 76,
+                          height: 76,
+                          decoration: BoxDecoration(
+                            color: pal.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.check, size: 34, color: pal.onPrimary),
+                        ),
+                      )
+                    : _Hero(category: day.category, pal: pal),
+                if (done)
+                  Positioned(
+                    top: 14,
+                    right: 14,
+                    child: _Tag(text: 'COMPLETED', pal: pal),
+                  ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text("TODAY'S CHALLENGE",
+                          style: _sans(context, 10,
+                              color: pal.primary, w: FontWeight.w700, ls: 1)),
+                      const Spacer(),
+                      Icon(Icons.timer_outlined, size: 14, color: pal.muted),
+                      const SizedBox(width: 4),
+                      Text(_fmtMin(minutes),
+                          style: _sans(context, 11, color: pal.muted)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(_momentTitle(day, minutes),
+                      style: _serif(context, 26, color: pal.text)),
+                  const SizedBox(height: 8),
+                  Text(
+                      done
+                          ? 'You made time for yourself. Well done.'
+                          : day.step.description,
+                      style: _sans(context, 12, color: pal.muted, h: 1.5)),
+                  if (!done) ...[
+                    const SizedBox(height: 18),
+                    if (running != null) ...[
+                      Row(
+                        children: [
+                          Icon(Icons.hourglass_bottom,
+                              size: 16, color: pal.primary),
+                          const SizedBox(width: 8),
+                          Text(
+                              'In progress · ${_mmss(running.end.difference(DateTime.now()))} left',
+                              style: _sans(context, 12,
+                                  color: pal.primary, w: FontWeight.w600)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _PrimaryButton(
+                          pal: pal,
+                          label: 'Open moment',
+                          icon: Icons.timer_outlined,
+                          onTap: () => _openMoment(plan, day)),
+                    ] else ...[
+                      _PrimaryButton(
+                          pal: pal,
+                          label: 'Start activity',
+                          icon: Icons.play_arrow_rounded,
+                          onTap: () => _openMoment(plan, day)),
+                      const SizedBox(height: 6),
+                      Center(
+                        child: TextButton.icon(
+                          style: TextButton.styleFrom(foregroundColor: pal.muted),
+                          onPressed: () => _changeTime(plan, d, minutes, pal),
+                          icon: const Icon(Icons.alarm, size: 16),
+                          label: Text('Change time',
+                              style: _sans(context, 12, color: pal.muted)),
+                        ),
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+
+        // Tip: een enkele regel
+        const SizedBox(height: 18),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.wb_sunny_outlined, size: 16, color: pal.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(tip,
+                  style: _sans(context, 12, color: pal.muted, h: 1.5)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
