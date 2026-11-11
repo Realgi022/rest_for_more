@@ -5,9 +5,11 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../localization/app_language.dart';
 import '../services/plan_service.dart';
+import '../theme/app_card.dart';
 
 const _icons = <String, IconData>{
   'Reading': Icons.menu_book_outlined,
@@ -47,6 +49,59 @@ const _boxName = 'RestNest';
 /// Verandert telkens als het plan wijzigt, zodat Today en Progress elkaar bijwerken
 final ValueNotifier<int> _planTick = ValueNotifier<int>(0);
 void _planChanged() => _planTick.value++;
+
+// Pauze blijft bewaard (ook als je het moment-scherm verlaat of de app sluit)
+DateTime? _momentPausedAt;
+DateTime _now() => _momentPausedAt ?? DateTime.now();
+
+Future<MomentSession?> _activeMoment() async {
+  final m = await PlanService.activeMoment();
+  final p = await SharedPreferences.getInstance();
+  if (m == null) {
+    _momentPausedAt = null;
+    await p.remove('moment_paused_at');
+    return null;
+  }
+  final ms = p.getInt('moment_paused_at');
+  _momentPausedAt =
+      ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  return m;
+}
+
+Future<void> _setPaused(DateTime? at) async {
+  _momentPausedAt = at;
+  final p = await SharedPreferences.getInstance();
+  if (at == null) {
+    await p.remove('moment_paused_at');
+  } else {
+    await p.setInt('moment_paused_at', at.millisecondsSinceEpoch);
+  }
+}
+
+Future<void> _clearMoment() async {
+  await PlanService.clearMoment();
+  await _setPaused(null);
+}
+
+
+/// Minuten die vandaag al gedaan zijn maar het doel nog niet bereiken.
+Future<int> _partialMin(int day) async =>
+    (await SharedPreferences.getInstance()).getInt('plan_partial_$day') ?? 0;
+
+/// Verwerkt een afgeronde of gestopte sessie. De dag telt pas als voltooid
+/// wanneer het doel (bv. 45 min) bereikt is; anders blijven de minuten bewaard
+/// en kan je later doorgaan. Geeft true terug als de dag voltooid is.
+Future<bool> _applySession(int day, int sessionMin, int goal) async {
+  final p = await SharedPreferences.getInstance();
+  final total = (p.getInt('plan_partial_$day') ?? 0) + sessionMin;
+  if (total >= goal) {
+    await PlanService.complete(day, minutes: goal);
+    await p.remove('plan_partial_$day');
+    return true;
+  }
+  await p.setInt('plan_partial_$day', total);
+  return false;
+}
 
 String _mmss(Duration d) {
   if (d.isNegative) d = Duration.zero;
@@ -134,26 +189,30 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   MomentSession? _active;
   Timer? _ticker;
+  int _partial = 0;
 
   Future<void> _load() async {
     var plan = await PlanService.load();
     final seen = await PlanService.introSeen();
-    var active = await PlanService.activeMoment();
+    var active = await _activeMoment();
 
-    if (active != null && !DateTime.now().isBefore(active.end)) {
+    if (active != null && !_now().isBefore(active.end)) {
       if (!plan.completed.contains(active.day)) {
-        await PlanService.complete(active.day, minutes: active.minutes);
+        await _applySession(
+            active.day, active.minutes, plan.minutesFor(active.day));
       }
-      await PlanService.clearMoment();
+      await _clearMoment();
       active = null;
       plan = await PlanService.load();
     }
+    final partial = await _partialMin(plan.currentDay);
 
     if (!mounted) return;
     setState(() {
       _plan = plan;
       _introSeen = seen;
       _active = active;
+      _partial = partial;
       if (_selected == null || _selected! > plan.total) {
         _selected = plan.currentDay;
       }
@@ -168,7 +227,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       final a = _active;
-      if (a != null && !DateTime.now().isBefore(a.end)) {
+      if (a != null && !_now().isBefore(a.end)) {
         _load();
       } else {
         setState(() {});
@@ -185,13 +244,16 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   Future<void> _openMoment(PlanData plan, PlanDay day) async {
     final running = _active != null && _active!.day == day.day ? _active : null;
-    final minutes = running?.minutes ?? plan.minutesFor(day.day);
+    final goal = plan.minutesFor(day.day);
+    final before = await _partialMin(day.day);
+    final minutes = running?.minutes ?? (goal - before).clamp(1, goal).toInt();
+    if (!mounted) return;
     final result = await Navigator.of(context).push<int>(
       MaterialPageRoute(
         builder: (_) => _MomentScreen(
           dayNumber: day.day,
           minutes: minutes,
-          title: _momentTitle(day, minutes),
+          title: _momentTitle(day, goal),
           description: day.step.description,
           timeOfDay: plan.timeOfDay,
           resume: running,
@@ -199,8 +261,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
       ),
     );
     if (result != null) {
-      await PlanService.complete(day.day, minutes: result);
-      await PlanService.clearMoment();
+      await _applySession(day.day, result, goal);
+      await _clearMoment();
     }
     // Geri gidildiyse sayaç arka planda devam eder, burada yeniden okunur
     await _load();
@@ -286,6 +348,23 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   _planChanged();
                 },
                 child: const Text('Demo: show days 1–4 as done, start at day 5'),
+              ),
+              TextButton(
+                style: TextButton.styleFrom(foregroundColor: pal.primary),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  // Plan opnieuw: vandaag is dag 1, alles gewist
+                  await PlanService.reset();
+                  final sp = await SharedPreferences.getInstance();
+                  for (var i = 1; i <= 60; i++) {
+                    await sp.remove('plan_partial_$i');
+                  }
+                  await PlanService.markIntroSeen();
+                  setState(() => _selected = null);
+                  await _load();
+                  _planChanged();
+                },
+                child: const Text('Restart plan: today is day 1'),
               ),
             ],
           ),
@@ -478,6 +557,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
         minutes: minutes,
         timeOfDay: plan.timeOfDay,
         active: _active != null && _active!.day == d ? _active : null,
+        partialMin: _partial,
         onStart: () => _openMoment(plan, day),
         onGoal: (m) async {
           if (_active != null) return; // sayaç çalışırken hedef değişmez
@@ -608,7 +688,7 @@ class _Intro extends StatelessWidget {
   }
 }
 
-class _DayChips extends StatelessWidget {
+class _DayChips extends StatefulWidget {
   final PlanData plan;
   final _Pal pal;
   final int selected;
@@ -620,7 +700,55 @@ class _DayChips extends StatelessWidget {
       required this.onSelect});
 
   @override
+  State<_DayChips> createState() => _DayChipsState();
+}
+
+class _DayChipsState extends State<_DayChips> {
+  static const double _chipW = 58;
+  static const double _gap = 8;
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Na de eerste opbouw naar de gekozen dag scrollen (zonder animatie)
+    WidgetsBinding.instance.addPostFrameCallback((_) => _centerSelected(false));
+  }
+
+  @override
+  void didUpdateWidget(covariant _DayChips old) {
+    super.didUpdateWidget(old);
+    if (old.selected != widget.selected) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _centerSelected(true));
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _centerSelected(bool animate) {
+    if (!mounted || !_controller.hasClients) return;
+    final pos = _controller.position;
+    final target = (widget.selected - 1) * (_chipW + _gap) -
+        (pos.viewportDimension / 2 - _chipW / 2);
+    final offset = target.clamp(0.0, pos.maxScrollExtent).toDouble();
+    if (animate) {
+      _controller.animateTo(offset,
+          duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    } else {
+      _controller.jumpTo(offset);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final plan = widget.plan;
+    final pal = widget.pal;
+    final selected = widget.selected;
+    final onSelect = widget.onSelect;
     return SizedBox(
       height: 74,
       child: Listener(
@@ -635,47 +763,51 @@ class _DayChips extends StatelessWidget {
           dragDevices: PointerDeviceKind.values.toSet(),
         ),
         child: ListView.separated(
+        controller: _controller,
         scrollDirection: Axis.horizontal,
         physics: const ClampingScrollPhysics(),
         itemCount: plan.total,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) => const SizedBox(width: _gap),
         itemBuilder: (context, i) {
           final d = i + 1;
           final isSel = d == selected;
           final isToday = d == plan.currentDay;
           final done = plan.completed.contains(d);
           final locked = d > plan.currentDay;
+          // Vandaag is altijd bruin gevuld. Een andere gekozen dag krijgt
+          // alleen een dikkere rand.
+          final filled = isToday;
           return GestureDetector(
             onTap: () => onSelect(d),
             child: Opacity(
               opacity: locked && !isSel ? 0.65 : 1,
               child: Container(
-                width: 58,
+                width: _chipW,
                 decoration: BoxDecoration(
-                  color: isSel ? pal.primary : Colors.transparent,
+                  color: filled ? pal.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                       color: isSel || isToday ? pal.primary : pal.line,
-                      width: 1.2),
+                      width: isSel && !isToday ? 2.4 : 1.2),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(isToday ? 'TODAY' : 'DAY',
                         style: _sans(context, 8,
-                            color: isSel ? pal.onPrimary : pal.muted,
+                            color: filled ? pal.onPrimary : pal.muted,
                             w: FontWeight.w700,
                             ls: 0.5)),
                     const SizedBox(height: 2),
                     Text('$d',
                         style: _serif(context, 22,
-                            color: isSel ? pal.onPrimary : pal.text)),
+                            color: filled ? pal.onPrimary : pal.text)),
                     SizedBox(
                       height: 10,
                       child: done
                           ? Icon(Icons.check,
                               size: 10,
-                              color: isSel ? pal.onPrimary : pal.primary)
+                              color: filled ? pal.onPrimary : pal.primary)
                           : null,
                     ),
                   ],
@@ -812,6 +944,7 @@ class _TodayCard extends StatelessWidget {
   final int minutes;
   final String timeOfDay;
   final MomentSession? active;
+  final int partialMin;
   final VoidCallback onStart;
   final ValueChanged<int> onGoal;
   const _TodayCard(
@@ -821,6 +954,7 @@ class _TodayCard extends StatelessWidget {
       required this.timeOfDay,
       required this.onStart,
       required this.onGoal,
+      this.partialMin = 0,
       this.active});
 
   Future<void> _pickCustom(BuildContext context) async {
@@ -872,7 +1006,7 @@ class _TodayCard extends StatelessWidget {
                             size: 16, color: pal.primary),
                         const SizedBox(width: 8),
                         Text(
-                            'In progress · ${_mmss(active!.end.difference(DateTime.now()))} left',
+                            'In progress · ${_mmss(active!.end.difference(_now()))} left',
                             style: _sans(context, 12,
                                 color: pal.primary, w: FontWeight.w600)),
                       ],
@@ -883,17 +1017,33 @@ class _TodayCard extends StatelessWidget {
                         label: 'Open moment',
                         icon: Icons.timer_outlined,
                         onTap: onStart),
-                  ] else
+                  ] else ...[
+                    if (partialMin > 0) ...[
+                      Row(
+                        children: [
+                          Icon(Icons.timelapse, size: 16, color: pal.primary),
+                          const SizedBox(width: 8),
+                          Text('$partialMin of $minutes min done so far',
+                              style: _sans(context, 12,
+                                  color: pal.primary, w: FontWeight.w600)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     _PrimaryButton(
                         pal: pal,
-                        label: "Start today's moment",
+                        label: partialMin > 0
+                            ? "Continue today's session"
+                            : "Start today's moment",
                         icon: Icons.play_arrow_rounded,
                         onTap: onStart),
+                  ],
                 ],
               ),
             ),
           ],
         ),
+        if (active == null) ...[
         const SizedBox(height: 14),
         Container(
           padding: const EdgeInsets.all(18),
@@ -969,6 +1119,13 @@ class _TodayCard extends StatelessWidget {
             ],
           ),
         ),
+        ] else ...[
+          const SizedBox(height: 12),
+          Text(
+              'Wrong time? Open the moment and cancel it. The minutes you have done are kept.',
+              textAlign: TextAlign.center,
+              style: _sans(context, 11, color: pal.muted, h: 1.4)),
+        ],
       ],
     );
   }
@@ -1163,7 +1320,7 @@ class _CompleteCard extends StatelessWidget {
         const SizedBox(height: 8),
         Text('Day $day complete', style: _serif(context, 34, color: pal.text)),
         const SizedBox(height: 8),
-        Text('You spent $minutes minutes phone-free today.',
+        Text('You spent $minutes ${minutes == 1 ? 'minute' : 'minutes'} phone-free today.',
             textAlign: TextAlign.center,
             style: _sans(context, 12, color: pal.muted)),
         const SizedBox(height: 22),
@@ -1379,13 +1536,42 @@ class _MomentScreenState extends State<_MomentScreen> {
   MomentSession? _session;
   Timer? _timer;
   bool _finished = false;
+  DateTime? get _pausedAt => _momentPausedAt;
+
+  bool get _paused => _pausedAt != null;
+  DateTime get _clock => _now();
 
   Duration get _total => Duration(minutes: widget.minutes);
   Duration get _left {
     final s = _session;
     if (s == null) return _total;
-    final d = s.end.difference(DateTime.now());
+    final d = s.end.difference(_clock);
     return d.isNegative ? Duration.zero : d;
+  }
+
+  /// Bij hervatten schuiven we de starttijd op met de pauzeduur.
+  Future<void> _shiftStart(Duration by) async {
+    final s = _session;
+    if (s == null) return;
+    final moved = s.start.add(by);
+    final p = await SharedPreferences.getInstance();
+    await p.setInt('moment_start', moved.millisecondsSinceEpoch);
+    _session = MomentSession(s.day, s.minutes, moved);
+  }
+
+  Future<void> _togglePause() async {
+    if (_session == null) return;
+    if (_paused) {
+      final by = DateTime.now().difference(_pausedAt!);
+      await _shiftStart(by);
+      await _setPaused(null);
+      if (!mounted) return;
+      setState(() {});
+    } else {
+      await _setPaused(DateTime.now());
+      if (!mounted) return;
+      setState(() {});
+    }
   }
 
   @override
@@ -1399,6 +1585,7 @@ class _MomentScreenState extends State<_MomentScreen> {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
+      if (_paused) return;
       if (_left == Duration.zero) {
         _complete(widget.minutes);
       } else {
@@ -1409,7 +1596,7 @@ class _MomentScreenState extends State<_MomentScreen> {
 
   Future<void> _begin() async {
     await PlanService.startMoment(widget.dayNumber, widget.minutes);
-    final s = await PlanService.activeMoment();
+    final s = await _activeMoment();
     if (!mounted) return;
     setState(() => _session = s);
     _startTicker();
@@ -1422,16 +1609,63 @@ class _MomentScreenState extends State<_MomentScreen> {
     Navigator.of(context).pop(minutes);
   }
 
-  void _finishEarly() {
+  Future<void> _finishEarly() async {
     final s = _session;
     if (s == null) return;
-    final elapsed = DateTime.now().difference(s.start).inSeconds;
-    _complete((elapsed / 60).ceil().clamp(1, widget.minutes).toInt());
+    final elapsed = _clock.difference(s.start).inSeconds;
+    final doneMin = (elapsed / 60).ceil().clamp(1, widget.minutes).toInt();
+    if (doneMin < widget.minutes) {
+      final stop = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Finish early?'),
+          content: Text(
+              'You have done $doneMin of ${widget.minutes} minutes. Today only counts as finished when you reach your goal, but you can continue later. Pause if you just need a break.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Keep going')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Stop for now')),
+          ],
+        ),
+      );
+      if (stop != true) return;
+    }
+    _complete(doneMin);
   }
 
   Future<void> _cancel() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel this moment?'),
+        content: const Text(
+            'The minutes you have done so far will still be counted. You can continue later.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Keep going')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Cancel moment')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final st = _session;
+    final doneMin = st == null
+        ? 0
+        : (_clock.difference(st.start).inSeconds ~/ 60)
+            .clamp(0, widget.minutes)
+            .toInt();
+    if (doneMin > 0) {
+      _complete(doneMin);
+      return;
+    }
     _timer?.cancel();
-    await PlanService.clearMoment();
+    await _clearMoment();
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -1527,7 +1761,9 @@ class _MomentScreenState extends State<_MomentScreen> {
                         Expanded(
                           child: Text(
                             running
-                                ? 'Leave your phone in $_boxName until the time is up. Your moment keeps running if you go back.'
+                                ? (_paused
+                                    ? 'Paused. Your time is waiting. Press Resume when you are ready.'
+                                    : 'Leave your phone in $_boxName until the time is up. Your moment keeps running if you go back.')
                                 : 'Leave your phone in $_boxName. Your minutes begin as soon as it is inside.',
                             style: _sans(context, 11, color: pal.muted, h: 1.4),
                           ),
@@ -1549,17 +1785,26 @@ class _MomentScreenState extends State<_MomentScreen> {
                       style: _sans(context, 10, color: pal.muted, h: 1.4),
                     ),
                   ] else ...[
-                    _PrimaryButton(
-                        pal: pal,
-                        label: "I'm done",
-                        icon: Icons.check,
-                        onTap: _finishEarly),
+                    OutlinedButton.icon(
+                      onPressed: _togglePause,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: pal.primary,
+                        minimumSize: const Size.fromHeight(56),
+                        side: BorderSide(color: pal.primary),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                      ),
+                      icon: Icon(
+                          _paused ? Icons.play_arrow_rounded : Icons.pause,
+                          size: 20),
+                      label: Text(_paused ? 'Resume' : 'Pause'),
+                    ),
                     const SizedBox(height: 6),
                     Center(
                       child: TextButton(
                         style: TextButton.styleFrom(foregroundColor: pal.muted),
                         onPressed: _cancel,
-                        child: const Text('Cancel this moment'),
+                        child: const Text('Cancel'),
                       ),
                     ),
                   ],
@@ -1625,6 +1870,7 @@ class _TodayActivityState extends State<TodayActivity> {
   PlanData? _plan;
   MomentSession? _active;
   Timer? _ticker;
+  int _partial = 0;
 
   @override
   void initState() {
@@ -1646,19 +1892,22 @@ class _TodayActivityState extends State<TodayActivity> {
 
   Future<void> _load() async {
     var plan = await PlanService.load();
-    var active = await PlanService.activeMoment();
-    if (active != null && !DateTime.now().isBefore(active.end)) {
+    var active = await _activeMoment();
+    if (active != null && !_now().isBefore(active.end)) {
       if (!plan.completed.contains(active.day)) {
-        await PlanService.complete(active.day, minutes: active.minutes);
+        await _applySession(
+            active.day, active.minutes, plan.minutesFor(active.day));
       }
-      await PlanService.clearMoment();
+      await _clearMoment();
       active = null;
       plan = await PlanService.load();
     }
+    final partial = await _partialMin(plan.currentDay);
     if (!mounted) return;
     setState(() {
       _plan = plan;
       _active = active;
+      _partial = partial;
     });
     _ticker?.cancel();
     _ticker = null;
@@ -1666,7 +1915,7 @@ class _TodayActivityState extends State<TodayActivity> {
       _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted) return;
         final a = _active;
-        if (a != null && !DateTime.now().isBefore(a.end)) {
+        if (a != null && !_now().isBefore(a.end)) {
           _load();
         } else {
           setState(() {});
@@ -1677,13 +1926,16 @@ class _TodayActivityState extends State<TodayActivity> {
 
   Future<void> _openMoment(PlanData plan, PlanDay day) async {
     final running = _active != null && _active!.day == day.day ? _active : null;
-    final minutes = running?.minutes ?? plan.minutesFor(day.day);
+    final goal = plan.minutesFor(day.day);
+    final before = await _partialMin(day.day);
+    final minutes = running?.minutes ?? (goal - before).clamp(1, goal).toInt();
+    if (!mounted) return;
     final result = await Navigator.of(context).push<int>(
       MaterialPageRoute(
         builder: (_) => _MomentScreen(
           dayNumber: day.day,
           minutes: minutes,
-          title: _momentTitle(day, minutes),
+          title: _momentTitle(day, goal),
           description: day.step.description,
           timeOfDay: plan.timeOfDay,
           resume: running,
@@ -1691,8 +1943,8 @@ class _TodayActivityState extends State<TodayActivity> {
       ),
     );
     if (result != null) {
-      await PlanService.complete(day.day, minutes: result);
-      await PlanService.clearMoment();
+      await _applySession(day.day, result, goal);
+      await _clearMoment();
     }
     await _load();
     _planChanged();
@@ -1725,9 +1977,33 @@ class _TodayActivityState extends State<TodayActivity> {
     final d = plan.currentDay.clamp(1, plan.total);
     final day = plan.days[d - 1];
     final done = plan.completed.contains(d);
-    final minutes = done ? (plan.minutesDone[d] ?? plan.minutesFor(d)) : plan.minutesFor(d);
+    // De titel blijft het doel van vandaag (bv. 45 min), ook na eerder stoppen
+    final minutes = plan.minutesFor(d);
     final running = _active != null && _active!.day == d ? _active : null;
     final tip = _tips[d % _tips.length];
+
+    // Phone-vrije tijd van vandaag: klaar = alles, bezig = verstreken tijd
+    final totalSec = minutes * 60;
+    int elapsedSec = 0;
+    if (done) {
+      elapsedSec = ((plan.minutesDone[d] ?? minutes) * 60).clamp(0, totalSec).toInt();
+    } else if (running != null) {
+      final left = running.end.difference(_now()).inSeconds;
+      final session = (running.minutes * 60 - left).clamp(0, running.minutes * 60).toInt();
+      elapsedSec = (_partial * 60 + session).clamp(0, totalSec).toInt();
+    } else {
+      elapsedSec = (_partial * 60).clamp(0, totalSec).toInt();
+    }
+    final fraction = totalSec == 0 ? 0.0 : elapsedSec / totalSec;
+    final doneMin = elapsedSec ~/ 60;
+    final leftMin = ((totalSec - elapsedSec) / 60).ceil();
+    final freeText = done
+        ? (doneMin < minutes
+            ? 'You gave $doneMin of $minutes minutes. Every moment counts.'
+            : 'You made time for yourself. Every moment counts.')
+        : (running != null || _partial > 0
+            ? "You're doing beautifully. Just $leftMin ${leftMin == 1 ? 'minute' : 'minutes'} to go."
+            : 'A little time away makes room for more.');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1829,7 +2105,7 @@ class _TodayActivityState extends State<TodayActivity> {
                               size: 16, color: pal.primary),
                           const SizedBox(width: 8),
                           Text(
-                              'In progress · ${_mmss(running.end.difference(DateTime.now()))} left',
+                              'In progress · ${_mmss(running.end.difference(_now()))} left',
                               style: _sans(context, 12,
                                   color: pal.primary, w: FontWeight.w600)),
                         ],
@@ -1843,7 +2119,7 @@ class _TodayActivityState extends State<TodayActivity> {
                     ] else ...[
                       _PrimaryButton(
                           pal: pal,
-                          label: 'Start activity',
+                          label: _partial > 0 ? "Continue today's session" : 'Start activity',
                           icon: Icons.play_arrow_rounded,
                           onTap: () => _openMoment(plan, day)),
                       const SizedBox(height: 6),
@@ -1862,6 +2138,42 @@ class _TodayActivityState extends State<TodayActivity> {
               ),
             ),
           ],
+        ),
+
+        // Phone-free today
+        const SizedBox(height: 14),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: appCardDecoration(context, radius: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text('Phone-free today',
+                      style: _sans(context, 13,
+                          color: pal.text, w: FontWeight.w600)),
+                  const Spacer(),
+                  Text('$doneMin/$minutes min',
+                      style: _sans(context, 12,
+                          color: pal.text, w: FontWeight.w600)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: fraction,
+                  minHeight: 8,
+                  backgroundColor: pal.line,
+                  valueColor: AlwaysStoppedAnimation<Color>(pal.primary),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(freeText, style: _sans(context, 11, color: pal.muted)),
+            ],
+          ),
         ),
 
         // Tip: een enkele regel
