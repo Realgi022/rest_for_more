@@ -14,6 +14,7 @@ import 'screens/progress.dart';
 import 'screens/calendar.dart';
 import 'screens/all_steps.dart';
 import 'services/mode_schedule_service.dart';
+import 'services/notification_service.dart';
 import 'services/timer_service.dart';
 import 'services/time_format_controller.dart';
 import 'services/week_start_controller.dart';
@@ -133,6 +134,21 @@ final GoRouter router = GoRouter(
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.initialize(
+    onAction: (response) {
+      final timer = FocusTimerService.instance;
+
+      switch (response.actionId) {
+        case 'pause_timer':
+          timer.pauseTimer();
+        case 'resume_timer':
+          timer.resumeTimer();
+        case 'stop_timer':
+          timer.cancelTimer();
+      }
+    },
+  );
+
   await appLanguageController.load();
   await themeController.load();
   await timeFormatController.load();
