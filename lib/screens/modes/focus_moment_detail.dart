@@ -343,7 +343,7 @@ class _ModeScheduleSection extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Planned ${modeId.label}',
+                          context.t.plannedFocus,
                           style: GoogleFonts.cormorantGaramond(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
@@ -351,7 +351,7 @@ class _ModeScheduleSection extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Choose days and a time window.',
+                          context.t.chooseDaysAndTimeWindow,
                           style: GoogleFonts.manrope(
                             color: colorScheme.onSurface,
                           ),
@@ -363,7 +363,7 @@ class _ModeScheduleSection extends StatelessWidget {
                     IconButton(
                       onPressed: () => _openScheduleForm(context),
                       color: colorScheme.primary,
-                      tooltip: 'Add schedule',
+                      tooltip: context.t.addSchedule,
                       icon: const Icon(Icons.add),
                     ),
                 ],
@@ -371,7 +371,7 @@ class _ModeScheduleSection extends StatelessWidget {
               const SizedBox(height: 16),
               if (schedule == null)
                 Text(
-                  'No schedules yet.',
+                  context.t.noSchedulesYet,
                   style: GoogleFonts.manrope(color: colorScheme.onSurface),
                 )
               else
@@ -417,7 +417,7 @@ class _ScheduleTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _formatWeekdays(schedule.weekdays),
+                      _formatWeekdays(schedule.weekdays, context.t),
                       style: GoogleFonts.manrope(
                         fontWeight: FontWeight.bold,
                         color: colorScheme.onSurface,
@@ -431,7 +431,7 @@ class _ScheduleTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Tap to edit',
+                      context.t.tapToEdit,
                       style: GoogleFonts.manrope(
                         fontSize: 12,
                         color: colorScheme.onSurface.withValues(alpha: 0.7),
@@ -497,7 +497,7 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
   Future<void> _pickStartTime() async {
     final selected = await _showScheduleTimePicker(
       context: context,
-      title: 'Start time',
+      title: context.t.startTime,
       initialTime: _startTime,
     );
 
@@ -511,7 +511,7 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
   Future<void> _pickEndTime() async {
     final selected = await _showScheduleTimePicker(
       context: context,
-      title: 'End time',
+      title: context.t.endTime,
       initialTime: _endTime,
     );
 
@@ -539,13 +539,13 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     if (_weekdays.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Choose at least one day.')));
+      ).showSnackBar(SnackBar(content: Text(context.t.chooseAtLeastOneDay)));
       return;
     }
 
     if (startTimeMinutes == endTimeMinutes) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Choose different start and end times.')),
+        SnackBar(content: Text(context.t.chooseDifferentStartEndTimes)),
       );
       return;
     }
@@ -575,8 +575,8 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
             children: [
               Text(
                 widget.schedule == null
-                    ? 'Plan ${widget.modeId.label}'
-                    : 'Edit ${widget.modeId.label}',
+                    ? context.t.planFocus
+                    : context.t.editFocus,
                 style: GoogleFonts.cormorantGaramond(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -584,7 +584,7 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
               ),
               const SizedBox(height: 20),
               Text(
-                'Days',
+                context.t.days,
                 style: GoogleFonts.manrope(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
@@ -596,7 +596,7 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
                   final selected = _weekdays.contains(weekday);
 
                   return ChoiceChip(
-                    label: Text(_shortWeekdayName(weekday)),
+                    label: Text(context.t.weekdayShort[weekday - 1]),
                     selected: selected,
                     onSelected: (_) => _toggleWeekday(weekday),
                   );
@@ -606,7 +606,7 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.play_arrow_outlined),
-                title: const Text('From'),
+                title: Text(context.t.from),
                 subtitle: Text(
                   formatScheduleTime(
                     _startTime,
@@ -618,7 +618,7 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.stop_outlined),
-                title: const Text('To'),
+                title: Text(context.t.to),
                 subtitle: Text(
                   formatScheduleTime(
                     _endTime,
@@ -634,8 +634,8 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
                   onPressed: _save,
                   child: Text(
                     widget.schedule == null
-                        ? 'Save schedule'
-                        : 'Update schedule',
+                        ? context.t.saveSchedule
+                        : context.t.updateSchedule,
                   ),
                 ),
               ),
@@ -777,7 +777,7 @@ class _ScrollableTimePickerSheetState
                 TextButton.icon(
                   onPressed: _openClockPicker,
                   icon: const Icon(Icons.schedule),
-                  label: const Text('Clock'),
+                  label: Text(context.t.clock),
                 ),
               ],
             ),
@@ -786,7 +786,7 @@ class _ScrollableTimePickerSheetState
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _ScheduleTimePickerColumn(
-                  label: 'Hour',
+                  label: context.t.hour,
                   controller: _hourController,
                   itemCount: timeFormatController.value ? 24 : 12,
                   itemBuilder: (index) => timeFormatController.value
@@ -801,7 +801,7 @@ class _ScrollableTimePickerSheetState
                   },
                 ),
                 _ScheduleTimePickerColumn(
-                  label: 'Minute',
+                  label: context.t.minute,
                   controller: _minuteController,
                   itemCount: 60,
                   itemBuilder: (index) => index.toString().padLeft(2, '0'),
@@ -813,7 +813,7 @@ class _ScrollableTimePickerSheetState
                 ),
                 if (!timeFormatController.value)
                   _ScheduleTimePickerColumn(
-                    label: 'Period',
+                    label: context.t.period,
                     controller: _periodController,
                     itemCount: 2,
                     looping: false,
@@ -834,7 +834,12 @@ class _ScrollableTimePickerSheetState
                   Navigator.pop(context, _selectedTime);
                 },
                 child: Text(
-                  'Use ${formatScheduleTime(_selectedTime, use24HourTime: timeFormatController.value)}',
+                  context.t.useTime(
+                    formatScheduleTime(
+                      _selectedTime,
+                      use24HourTime: timeFormatController.value,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -910,14 +915,14 @@ TimeOfDay _minutesToTimeOfDay(int minutesAfterMidnight) {
   );
 }
 
-String _formatWeekdays(List<int> weekdays) {
-  if (weekdays.length == 7) return 'Every day';
+String _formatWeekdays(List<int> weekdays, AppStrings t) {
+  if (weekdays.length == 7) return t.everyDay;
 
-  if (_sameWeekdays(weekdays, [1, 2, 3, 4, 5])) return 'Weekdays';
+  if (_sameWeekdays(weekdays, [1, 2, 3, 4, 5])) return t.scheduleWeekdays;
 
-  if (_sameWeekdays(weekdays, [6, 7])) return 'Weekends';
+  if (_sameWeekdays(weekdays, [6, 7])) return t.scheduleWeekends;
 
-  return weekdays.map(_shortWeekdayName).join(', ');
+  return weekdays.map((day) => t.weekdayShort[day - 1]).join(', ');
 }
 
 bool _sameWeekdays(List<int> weekdays, List<int> expected) {
@@ -932,11 +937,6 @@ bool _sameWeekdays(List<int> weekdays, List<int> expected) {
   return true;
 }
 
-String _shortWeekdayName(int weekday) {
-  const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-  return names[weekday - 1];
-}
 
 class _TimerPresets extends StatelessWidget {
   final FixedExtentScrollController hoursController;

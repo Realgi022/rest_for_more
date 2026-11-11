@@ -61,13 +61,14 @@ class SettingsScreen extends StatelessWidget {
               builder: (context, use24HourTime, child) => _SettingsTile(
                 icon: Icons.access_time,
                 title: t.timeFormatTitle,
-                description: t.timeFormatDescription,
+                // description: t.timeFormatDescription,
+                description: "",
                 trailing: DropdownButton<bool>(
                   value: use24HourTime,
                   underline: const SizedBox.shrink(),
                   items: const [
                     DropdownMenuItem(value: false, child: Text('AM/PM')),
-                    DropdownMenuItem(value: true, child: Text('00–23')),
+                    DropdownMenuItem(value: true, child: Text('00:00/23:59')),
                   ],
                   onChanged: (value) {
                     if (value != null) timeFormatController.setUse24HourTime(value);
@@ -82,7 +83,8 @@ class SettingsScreen extends StatelessWidget {
                 return _SettingsTile(
                   icon: Icons.language,
                   title: t.languageTitle,
-                  description: t.languageDescription,
+                  // description: t.languageDescription,
+                  description: "",
                   trailing: DropdownButton<AppLanguage>(
                     value: language,
                     underline: const SizedBox.shrink(),
