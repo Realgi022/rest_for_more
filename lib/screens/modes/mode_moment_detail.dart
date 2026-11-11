@@ -7,15 +7,18 @@ import 'package:rest_for_more/models/mode_schedule.dart';
 import 'package:rest_for_more/services/mode_schedule_service.dart';
 import 'package:rest_for_more/services/timer_service.dart';
 import 'package:rest_for_more/services/time_format_controller.dart';
+import 'package:rest_for_more/services/week_start_controller.dart';
 
-class FocusMomentScreen extends StatefulWidget {
-  const FocusMomentScreen({super.key});
+class ModeMomentScreen extends StatefulWidget {
+  final ModeId modeId;
+
+  const ModeMomentScreen({super.key, this.modeId = ModeId.focus});
 
   @override
-  State<FocusMomentScreen> createState() => _FocusMomentScreenState();
+  State<ModeMomentScreen> createState() => _ModeMomentScreenState();
 }
 
-class _FocusMomentScreenState extends State<FocusMomentScreen> {
+class _ModeMomentScreenState extends State<ModeMomentScreen> {
   final timer = FocusTimerService.instance;
 
   @override
@@ -31,9 +34,9 @@ class _FocusMomentScreenState extends State<FocusMomentScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const _Header(),
+                  _Header(modeId: widget.modeId),
                   const SizedBox(height: 32),
-                  _TimerCard(),
+                  _TimerCard(modeId: widget.modeId),
                 ],
               ),
             ),
@@ -45,7 +48,9 @@ class _FocusMomentScreenState extends State<FocusMomentScreen> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header();
+  final ModeId modeId;
+
+  const _Header({required this.modeId});
 
   @override
   Widget build(BuildContext context) {
@@ -53,14 +58,14 @@ class _Header extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          context.t.focus,
+          context.t.modeName(modeId.value),
           style: GoogleFonts.cormorantGaramond(
             fontSize: 40,
             fontWeight: FontWeight.bold,
           ),
         ),
         Text(
-          context.t.focusMomentTimer,
+          context.t.modeMomentTimer(modeId.value),
           style: GoogleFonts.manrope(fontSize: 20),
         ),
       ],
@@ -69,7 +74,9 @@ class _Header extends StatelessWidget {
 }
 
 class _TimerCard extends StatelessWidget {
-  const _TimerCard();
+  final ModeId modeId;
+
+  const _TimerCard({required this.modeId});
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +88,7 @@ class _TimerCard extends StatelessWidget {
             children: [
               const _InactiveTimerCard(),
               const SizedBox(height: 24),
-              _ModeScheduleSection(modeId: ModeId.focus),
+              _ModeScheduleSection(modeId: modeId),
             ],
           );
   }
@@ -301,6 +308,9 @@ class _ModeScheduleSection extends StatelessWidget {
       await modeScheduleService.updateSchedule(
         existingSchedule.copyWith(
           weekdays: schedule.weekdays,
+          dates: schedule.dates,
+          repeatWeekly: schedule.repeatWeekly,
+          name: schedule.name,
           startTimeMinutes: schedule.startTimeMinutes,
           endTimeMinutes: schedule.endTimeMinutes,
         ),
@@ -308,12 +318,20 @@ class _ModeScheduleSection extends StatelessWidget {
       return;
     }
 
-    await modeScheduleService.addSchedule(
+    final added = await modeScheduleService.addSchedule(
       modeId: modeId,
+      name: schedule.name,
+      dates: schedule.dates,
+      repeatWeekly: schedule.repeatWeekly,
       weekdays: schedule.weekdays,
       startTimeMinutes: schedule.startTimeMinutes,
       endTimeMinutes: schedule.endTimeMinutes,
     );
+    if (!added && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.t.scheduleLimitMessage)));
+    }
   }
 
   @override
@@ -324,8 +342,6 @@ class _ModeScheduleSection extends StatelessWidget {
       listenable: Listenable.merge([modeScheduleService, timeFormatController]),
       builder: (context, _) {
         final schedules = modeScheduleService.schedulesFor(modeId);
-        final schedule = schedules.isEmpty ? null : schedules.first;
-
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.all(24),
@@ -343,7 +359,9 @@ class _ModeScheduleSection extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          context.t.plannedFocus,
+                          context.t.plannedMode(
+                            context.t.modeName(modeId.value),
+                          ),
                           style: GoogleFonts.cormorantGaramond(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
@@ -356,10 +374,21 @@ class _ModeScheduleSection extends StatelessWidget {
                             color: colorScheme.onSurface,
                           ),
                         ),
+                        Text(
+                          context.t.schedulesCount(
+                            schedules.length,
+                            ModeScheduleService.maxSchedulesPerMode,
+                          ),
+                          style: GoogleFonts.manrope(
+                            fontSize: 12,
+                            color: colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  if (schedule == null)
+                  if (schedules.length <
+                      ModeScheduleService.maxSchedulesPerMode)
                     IconButton(
                       onPressed: () => _openScheduleForm(context),
                       color: colorScheme.primary,
@@ -369,16 +398,18 @@ class _ModeScheduleSection extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              if (schedule == null)
+              if (schedules.isEmpty)
                 Text(
                   context.t.noSchedulesYet,
                   style: GoogleFonts.manrope(color: colorScheme.onSurface),
                 )
               else
-                _ScheduleTile(
-                  schedule: schedule,
-                  onTap: () =>
-                      _openScheduleForm(context, existingSchedule: schedule),
+                ...schedules.map(
+                  (schedule) => _ScheduleTile(
+                    schedule: schedule,
+                    onTap: () =>
+                        _openScheduleForm(context, existingSchedule: schedule),
+                  ),
                 ),
             ],
           ),
@@ -417,11 +448,16 @@ class _ScheduleTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _formatWeekdays(schedule.weekdays, context.t),
+                      schedule.name,
                       style: GoogleFonts.manrope(
                         fontWeight: FontWeight.bold,
                         color: colorScheme.onSurface,
                       ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatWeekdays(schedule.weekdays, context.t),
+                      style: GoogleFonts.manrope(color: colorScheme.onSurface),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -472,8 +508,15 @@ class _ScheduleFormSheet extends StatefulWidget {
 
 class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
   late Set<int> _weekdays;
+  late Set<String> _dates;
+  late bool _repeatWeekly;
+  late final TextEditingController _nameController;
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
+  int _weekPage = 1000;
+  late DateTime _calendarDate;
+  late final PageController _weekController;
+  bool _calendarExpanded = false;
 
   @override
   void initState() {
@@ -481,6 +524,11 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
 
     final now = DateTime.now();
     final schedule = widget.schedule;
+    _nameController = TextEditingController(text: schedule?.name ?? '');
+    _dates = schedule?.dates.toSet() ?? <String>{};
+    _repeatWeekly = schedule?.repeatWeekly ?? true;
+    _calendarDate = DateTime.now();
+    _weekController = PageController(initialPage: _weekPage);
 
     if (schedule != null) {
       _weekdays = schedule.weekdays.toSet();
@@ -492,6 +540,13 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     _weekdays = {now.weekday};
     _startTime = TimeOfDay(hour: now.hour, minute: 0);
     _endTime = TimeOfDay(hour: (now.hour + 1) % 24, minute: 0);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _weekController.dispose();
+    super.dispose();
   }
 
   Future<void> _pickStartTime() async {
@@ -522,24 +577,162 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     });
   }
 
-  void _toggleWeekday(int weekday) {
+  void _toggleDate(DateTime date) {
     setState(() {
-      if (_weekdays.contains(weekday)) {
-        _weekdays.remove(weekday);
+      if (_repeatWeekly) {
+        final weekday = date.weekday;
+        if (_weekdays.contains(weekday)) {
+          _weekdays.remove(weekday);
+        } else {
+          _weekdays.add(weekday);
+        }
       } else {
-        _weekdays.add(weekday);
+        final key = _dateKey(date);
+        if (!_dates.remove(key)) _dates.add(key);
       }
     });
+  }
+
+  DateTime _weekStartForPage(int page) {
+    final now = DateTime.now();
+    final firstWeekday = weekStartController.value
+        ? DateTime.sunday
+        : DateTime.monday;
+    final daysSinceWeekStart = (now.weekday - firstWeekday + 7) % 7;
+    final thisWeek = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: daysSinceWeekStart));
+    return thisWeek.add(Duration(days: (page - 1000) * 7));
+  }
+
+  List<int> get _weekdayOrder {
+    final firstWeekday = weekStartController.value
+        ? DateTime.sunday
+        : DateTime.monday;
+    return List.generate(7, (index) => (firstWeekday + index - 1) % 7 + 1);
+  }
+
+  String _calendarSummary() {
+    if (_dates.isEmpty) return context.t.chooseCalendarDates;
+
+    final grouped = <String, List<int>>{};
+    for (final value in _dates) {
+      final parts = value.split('-');
+      if (parts.length != 3) continue;
+
+      final year = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final day = int.tryParse(parts[2]);
+      if (year == null || month == null || day == null) continue;
+
+      grouped.putIfAbsent('$year-$month', () => []).add(day);
+    }
+
+    final groups = grouped.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final summary = groups
+        .map((entry) {
+          final parts = entry.key.split('-');
+          final year = int.parse(parts[0]);
+          final month = int.parse(parts[1]);
+          final days = [...entry.value]..sort();
+          return '${days.join(', ')} ${context.t.monthsShort[month - 1]} $year';
+        })
+        .join(' • ');
+
+    return '${context.t.chosenCalendarDates}: $summary';
+  }
+
+  Widget _calendarGrid(BuildContext context) {
+    final monthStart = DateTime(_calendarDate.year, _calendarDate.month, 1);
+    final firstWeekday = _weekdayOrder.first;
+    final leadingDays = (monthStart.weekday - firstWeekday + 7) % 7;
+    final daysInMonth = DateTime(
+      _calendarDate.year,
+      _calendarDate.month + 1,
+      0,
+    ).day;
+    final cells = <Widget>[];
+
+    for (var index = 0; index < leadingDays; index += 1) {
+      cells.add(const SizedBox.shrink());
+    }
+
+    for (var day = 1; day <= daysInMonth; day += 1) {
+      final date = DateTime(_calendarDate.year, _calendarDate.month, day);
+      final selected = _dates.contains(_dateKey(date));
+      final isToday = DateUtils.isSameDay(date, DateTime.now());
+      cells.add(
+        GestureDetector(
+          onTap: _repeatWeekly
+              ? null
+              : () => setState(() {
+                  final key = _dateKey(date);
+                  if (!_dates.remove(key)) _dates.add(key);
+                }),
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected
+                    ? Theme.of(context).colorScheme.primary
+                    : isToday
+                    ? Theme.of(context).colorScheme.surface
+                    : Colors.transparent,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isToday
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.transparent,
+                ),
+              ),
+              child: Text(
+                '$day',
+                style: GoogleFonts.manrope(
+                  color: selected
+                      ? Theme.of(context).colorScheme.onPrimary
+                      : Theme.of(context).colorScheme.onSurface,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 7,
+      childAspectRatio: 1.2,
+      children: [
+        ..._weekdayOrder.map(
+          (weekday) => Center(
+            child: Text(
+              context.t.weekdayShort[weekday - 1],
+              style: GoogleFonts.manrope(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+        ...cells,
+      ],
+    );
   }
 
   void _save() {
     final startTimeMinutes = _timeOfDayToMinutes(_startTime);
     final endTimeMinutes = _timeOfDayToMinutes(_endTime);
 
-    if (_weekdays.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(context.t.chooseAtLeastOneDay)));
+    if ((_repeatWeekly && _weekdays.isEmpty) ||
+        (!_repeatWeekly && _dates.isEmpty)) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.t.chooseAtLeastOneDay)));
       return;
     }
 
@@ -553,6 +746,9 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     Navigator.pop(
       context,
       _ScheduleFormResult(
+        name: _nameController.text,
+        dates: _dates.toList()..sort(),
+        repeatWeekly: _repeatWeekly,
         weekdays: _weekdays.toList()..sort(),
         startTimeMinutes: startTimeMinutes,
         endTimeMinutes: endTimeMinutes,
@@ -565,81 +761,240 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return ListenableBuilder(
-      listenable: timeFormatController,
+      listenable: Listenable.merge([timeFormatController, weekStartController]),
       builder: (context, _) => SafeArea(
         child: Padding(
           padding: EdgeInsets.fromLTRB(20, 20, 20, bottomInset + 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.schedule == null
-                    ? context.t.planFocus
-                    : context.t.editFocus,
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                context.t.days,
-                style: GoogleFonts.manrope(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: List.generate(7, (index) {
-                  final weekday = index + 1;
-                  final selected = _weekdays.contains(weekday);
-
-                  return ChoiceChip(
-                    label: Text(context.t.weekdayShort[weekday - 1]),
-                    selected: selected,
-                    onSelected: (_) => _toggleWeekday(weekday),
-                  );
-                }),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.play_arrow_outlined),
-                title: Text(context.t.from),
-                subtitle: Text(
-                  formatScheduleTime(
-                    _startTime,
-                    use24HourTime: timeFormatController.value,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.schedule == null
+                      ? context.t.planMode(
+                          context.t.modeName(widget.modeId.value),
+                        )
+                      : context.t.editMode(
+                          context.t.modeName(widget.modeId.value),
+                        ),
+                  style: GoogleFonts.cormorantGaramond(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                onTap: _pickStartTime,
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.stop_outlined),
-                title: Text(context.t.to),
-                subtitle: Text(
-                  formatScheduleTime(
-                    _endTime,
-                    use24HourTime: timeFormatController.value,
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _nameController,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    labelText: context.t.scheduleName,
+                    hintText: context.t.scheduleNameHint,
+                    prefixIcon: Icon(Icons.label_outline),
                   ),
                 ),
-                onTap: _pickEndTime,
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _save,
-                  child: Text(
-                    widget.schedule == null
-                        ? context.t.saveSchedule
-                        : context.t.updateSchedule,
+                const SizedBox(height: 20),
+                Text(
+                  context.t.scheduleDaysTitle,
+                  style: GoogleFonts.cormorantGaramond(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 78,
+                        child: PageView.builder(
+                          controller: _weekController,
+                          itemBuilder: (context, page) {
+                            final weekStart = _weekStartForPage(page);
+                            return Row(
+                              children: List.generate(7, (index) {
+                                final date = weekStart.add(
+                                  Duration(days: index),
+                                );
+                                final weekday = _weekdayOrder[index];
+                                final selected = _repeatWeekly
+                                    ? _weekdays.contains(weekday)
+                                    : _dates.contains(_dateKey(date));
+                                final isToday = DateUtils.isSameDay(
+                                  date,
+                                  DateTime.now(),
+                                );
+                                return Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => _toggleDate(date),
+                                    child: Column(
+                                      children: [
+                                        Text(
+                                          context.t.weekdayShort[weekday - 1],
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 150,
+                                          ),
+                                          width: 38,
+                                          height: 34,
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: selected
+                                                ? Theme.of(context)
+                                                      .colorScheme
+                                                      .primary
+                                                      .withValues(alpha: 0.18)
+                                                : Colors.transparent,
+                                            border: Border.all(
+                                              color: isToday
+                                                  ? Theme.of(context)
+                                                        .colorScheme
+                                                        .primary
+                                                  : Colors.transparent,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '${date.day}',
+                                            style: GoogleFonts.manrope(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurface,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }),
+                            );
+                          },
+                          onPageChanged: (page) => _weekPage = page,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: context.t.chooseCalendarDates,
+                      onPressed: () => setState(() {
+                        _calendarExpanded = !_calendarExpanded;
+                      }),
+                      icon: Icon(
+                        _calendarExpanded
+                            ? Icons.keyboard_arrow_up
+                            : Icons.calendar_month_outlined,
+                      ),
+                    ),
+                  ],
+                ),
+                if (_calendarExpanded)
+                  IgnorePointer(
+                    ignoring: _repeatWeekly,
+                    child: Opacity(
+                      opacity: _repeatWeekly ? 0.45 : 1,
+                      child: Column(
+                        children: [
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              _calendarSummary(),
+                              style: GoogleFonts.manrope(fontSize: 13),
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${context.t.months[_calendarDate.month - 1]} ${_calendarDate.year}',
+                                  style: GoogleFonts.manrope(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => setState(() {
+                                  _calendarDate = DateTime(
+                                    _calendarDate.year,
+                                    _calendarDate.month - 1,
+                                    1,
+                                  );
+                                }),
+                                icon: const Icon(Icons.chevron_left),
+                              ),
+                              IconButton(
+                                onPressed: () => setState(() {
+                                  _calendarDate = DateTime(
+                                    _calendarDate.year,
+                                    _calendarDate.month + 1,
+                                    1,
+                                  );
+                                }),
+                                icon: const Icon(Icons.chevron_right),
+                              ),
+                            ],
+                          ),
+                          _calendarGrid(context),
+                        ],
+                      ),
+                    ),
+                  ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _repeatWeekly,
+                  title: Text(context.t.repeatWeekly),
+                  subtitle: Text(context.t.repeatWeeklyDescription),
+                  onChanged: (value) => setState(() {
+                    _repeatWeekly = value ?? true;
+                    if (_repeatWeekly) _dates.clear();
+                  }),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.play_arrow_outlined),
+                  title: Text(context.t.from),
+                  subtitle: Text(
+                    formatScheduleTime(
+                      _startTime,
+                      use24HourTime: timeFormatController.value,
+                    ),
+                  ),
+                  onTap: _pickStartTime,
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.stop_outlined),
+                  title: Text(context.t.to),
+                  subtitle: Text(
+                    formatScheduleTime(
+                      _endTime,
+                      use24HourTime: timeFormatController.value,
+                    ),
+                  ),
+                  onTap: _pickEndTime,
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _save,
+                    child: Text(
+                      widget.schedule == null
+                          ? context.t.saveSchedule
+                          : context.t.updateSchedule,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -648,16 +1003,27 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
 }
 
 class _ScheduleFormResult {
+  final String name;
+  final List<String> dates;
+  final bool repeatWeekly;
   final List<int> weekdays;
   final int startTimeMinutes;
   final int endTimeMinutes;
 
   const _ScheduleFormResult({
+    required this.name,
+    required this.dates,
+    required this.repeatWeekly,
     required this.weekdays,
     required this.startTimeMinutes,
     required this.endTimeMinutes,
   });
 }
+
+String _dateKey(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';
 
 Future<TimeOfDay?> _showScheduleTimePicker({
   required BuildContext context,
@@ -689,7 +1055,7 @@ class _ScrollableTimePickerSheet extends StatefulWidget {
 
 class _ScrollableTimePickerSheetState
     extends State<_ScrollableTimePickerSheet> {
-  late int _hour;
+  late int _hour24;
   late int _minute;
   late bool _isPm;
 
@@ -701,19 +1067,31 @@ class _ScrollableTimePickerSheetState
   void initState() {
     super.initState();
 
-    final hourOfPeriod = widget.initialTime.hour % 12;
-
-    _hour = timeFormatController.value
-        ? widget.initialTime.hour
-        : (hourOfPeriod == 0 ? 12 : hourOfPeriod);
+    _hour24 = widget.initialTime.hour;
     _minute = widget.initialTime.minute;
-    _isPm = widget.initialTime.hour >= 12;
+    _isPm = _hour24 >= 12;
 
     _hourController = FixedExtentScrollController(
-      initialItem: timeFormatController.value ? _hour : _hour - 1,
+      initialItem: timeFormatController.value
+          ? _hour24
+          : (_hour24 % 12 == 0 ? 11 : (_hour24 % 12) - 1),
     );
     _minuteController = FixedExtentScrollController(initialItem: _minute);
     _periodController = FixedExtentScrollController(initialItem: _isPm ? 1 : 0);
+    timeFormatController.addListener(_onFormatChanged);
+  }
+
+  void _onFormatChanged() {
+    if (!mounted) return;
+    final hourIndex = timeFormatController.value
+        ? _hour24
+        : (_hour24 % 12 == 0 ? 11 : (_hour24 % 12) - 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _hourController.jumpToItem(hourIndex);
+      _periodController.jumpToItem(_hour24 >= 12 ? 1 : 0);
+      setState(() {});
+    });
   }
 
   @override
@@ -721,6 +1099,7 @@ class _ScrollableTimePickerSheetState
     _hourController.dispose();
     _minuteController.dispose();
     _periodController.dispose();
+    timeFormatController.removeListener(_onFormatChanged);
 
     super.dispose();
   }
@@ -744,14 +1123,7 @@ class _ScrollableTimePickerSheetState
   }
 
   TimeOfDay get _selectedTime {
-    if (timeFormatController.value) {
-      return TimeOfDay(hour: _hour, minute: _minute);
-    }
-    final hour24 = _isPm
-        ? (_hour == 12 ? 12 : _hour + 12)
-        : (_hour == 12 ? 0 : _hour);
-
-    return TimeOfDay(hour: hour24, minute: _minute);
+    return TimeOfDay(hour: _hour24, minute: _minute);
   }
 
   @override
@@ -794,9 +1166,14 @@ class _ScrollableTimePickerSheetState
                       : '${index + 1}',
                   onChanged: (index) {
                     setState(() {
-                      _hour = timeFormatController.value
-                          ? index % 24
-                          : (index % 12) + 1;
+                      if (timeFormatController.value) {
+                        _hour24 = index % 24;
+                      } else {
+                        final hour = (index % 12) + 1;
+                        _hour24 = _isPm
+                            ? (hour == 12 ? 12 : hour + 12)
+                            : (hour == 12 ? 0 : hour);
+                      }
                     });
                   },
                 ),
@@ -821,6 +1198,10 @@ class _ScrollableTimePickerSheetState
                     onChanged: (index) {
                       setState(() {
                         _isPm = index == 1;
+                        final hour = _hour24 % 12;
+                        _hour24 = _isPm
+                            ? (hour == 0 ? 12 : hour + 12)
+                            : (hour == 0 ? 0 : hour);
                       });
                     },
                   ),
@@ -936,7 +1317,6 @@ bool _sameWeekdays(List<int> weekdays, List<int> expected) {
 
   return true;
 }
-
 
 class _TimerPresets extends StatelessWidget {
   final FixedExtentScrollController hoursController;
