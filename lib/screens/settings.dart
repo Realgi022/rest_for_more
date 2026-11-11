@@ -6,6 +6,7 @@ import '../services/time_format_controller.dart';
 import '../theme/app_card.dart';
 import '../theme/app_spacing.dart';
 import '../theme/theme_controller.dart';
+import '../services/week_start_controller.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -61,8 +62,7 @@ class SettingsScreen extends StatelessWidget {
               builder: (context, use24HourTime, child) => _SettingsTile(
                 icon: Icons.access_time,
                 title: t.timeFormatTitle,
-                // description: t.timeFormatDescription,
-                description: "",
+                description: t.timeFormatDescription,
                 trailing: DropdownButton<bool>(
                   value: use24HourTime,
                   underline: const SizedBox.shrink(),
@@ -71,7 +71,31 @@ class SettingsScreen extends StatelessWidget {
                     DropdownMenuItem(value: true, child: Text('00:00/23:59')),
                   ],
                   onChanged: (value) {
-                    if (value != null) timeFormatController.setUse24HourTime(value);
+                    if (value != null) {
+                      timeFormatController.setUse24HourTime(value);
+                    }
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ValueListenableBuilder<bool>(
+              valueListenable: weekStartController,
+              builder: (context, sundayFirst, child) => _SettingsTile(
+                icon: Icons.view_week_outlined,
+                title: t.firstDayOfWeek,
+                description: t.firstDayOfWeekDescription,
+                trailing: DropdownButton<bool>(
+                  value: sundayFirst,
+                  underline: const SizedBox.shrink(),
+                  items: [
+                    DropdownMenuItem(value: false, child: Text(t.monday)),
+                    DropdownMenuItem(value: true, child: Text(t.sunday)),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      weekStartController.setSundayFirst(value);
+                    }
                   },
                 ),
               ),
@@ -83,8 +107,7 @@ class SettingsScreen extends StatelessWidget {
                 return _SettingsTile(
                   icon: Icons.language,
                   title: t.languageTitle,
-                  // description: t.languageDescription,
-                  description: "",
+                  description: t.languageDescription,
                   trailing: DropdownButton<AppLanguage>(
                     value: language,
                     underline: const SizedBox.shrink(),
@@ -154,7 +177,12 @@ class _SettingsTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: theme.textTheme.headlineMedium?.copyWith(fontSize: 22)),
+                  Text(
+                    title,
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontSize: 22,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(description, style: theme.textTheme.bodySmall),
                 ],

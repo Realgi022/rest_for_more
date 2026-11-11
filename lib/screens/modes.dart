@@ -38,7 +38,7 @@ class ModesScreen extends StatelessWidget {
               icon: Icons.menu_book_outlined,
               label: t.reading,
               description: t.readingDescription,
-              onTap: () {},
+              onTap: () => context.go('/modes/reading'),
             ),
 
             const SizedBox(height: 12),
@@ -47,7 +47,7 @@ class ModesScreen extends StatelessWidget {
               icon: Icons.wb_twilight_outlined,
               label: t.evening,
               description: t.eveningDescription,
-              onTap: () {},
+              onTap: () => context.go('/modes/evening'),
             ),
 
             const SizedBox(height: 12),
@@ -56,7 +56,7 @@ class ModesScreen extends StatelessWidget {
               icon: Icons.wb_sunny_outlined,
               label: t.morning,
               description: t.morningDescription,
-              onTap: () {},
+              onTap: () => context.go('/modes/morning'),
             ),
           ],
         ),
