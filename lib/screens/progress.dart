@@ -20,28 +20,6 @@ const _icons = <String, IconData>{
   'Spending time with others': Icons.people_outline,
 };
 
-const _nouns = <String, String>{
-  'Reading': 'reading',
-  'Walking': 'walking',
-  'Music': 'music',
-  'Cooking': 'cooking',
-  'Exercise': 'movement',
-  'Creative activities': 'creating',
-  'Relaxing': 'relaxing',
-  'Spending time with others': 'time together',
-};
-
-const _short = <String, String>{
-  'Reading': 'Read',
-  'Walking': 'Walk',
-  'Music': 'Listen',
-  'Cooking': 'Cook',
-  'Exercise': 'Move',
-  'Creative activities': 'Create',
-  'Relaxing': 'Relax',
-  'Spending time with others': 'Connect',
-};
-
 const _boxName = 'RestNest';
 
 /// Verandert telkens als het plan wijzigt, zodat Today en Progress elkaar bijwerken
@@ -57,8 +35,8 @@ String _mmss(Duration d) {
 
 IconData _iconFor(String category) => _icons[category] ?? Icons.spa_outlined;
 
-String _momentTitle(PlanDay day, int minutes) =>
-    '$minutes minutes of phone free ${_nouns[day.category] ?? 'time'}';
+String _momentTitle(BuildContext context, PlanDay day, int minutes) =>
+    context.t.phoneFreeMomentTitle(minutes, day.category);
 
 /// Figma paleti, açık ve koyu temaya göre.
 class _Pal {
@@ -191,8 +169,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
         builder: (_) => _MomentScreen(
           dayNumber: day.day,
           minutes: minutes,
-          title: _momentTitle(day, minutes),
-          description: day.step.description,
+          title: _momentTitle(context, day, minutes),
+          description: context.t.planStepText(day.step.description),
           timeOfDay: plan.timeOfDay,
           resume: running,
         ),
@@ -219,10 +197,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Your ${plan.total}-day plan',
+              Text(ctx.t.yourDayPlanTitle(plan.total),
                   style: _serif(ctx, 26, color: pal.text)),
               const SizedBox(height: 4),
-              Text('${plan.completed.length} of ${plan.total} days completed',
+              Text(ctx.t.daysCompleted(plan.completed.length, plan.total),
                   style: _sans(ctx, 12, color: pal.muted)),
               const SizedBox(height: 16),
               Wrap(
@@ -285,7 +263,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   await _load();
                   _planChanged();
                 },
-                child: const Text('Demo: show days 1–4 as done, start at day 5'),
+                child: Text(ctx.t.demoProgress),
               ),
             ],
           ),
@@ -345,7 +323,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
               child: MediaQuery(
                 data: MediaQuery.of(context)
                     .copyWith(textScaler: TextScaler.noScaling),
-                child: Text('Progress',
+                child: Text(context.t.progress,
                     style: Theme.of(context).textTheme.headlineMedium),
               ),
             ),
@@ -357,7 +335,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
           ],
         ),
         const SizedBox(height: 2),
-        Text('YOUR ${plan.total}-DAY PLAN',
+        Text(context.t.yourDayPlanUpper(plan.total),
             style: _sans(context, 11,
                 color: pal.primary, w: FontWeight.w700, ls: 1)),
         const SizedBox(height: 14),
@@ -399,10 +377,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   Icon(_iconFor(plan.days[d - 1].category),
                       color: pal.primary),
                   const SizedBox(width: 14),
-                  Text('Day $d · ${_short[plan.days[d - 1].category] ?? plan.days[d - 1].category}',
+                  Text(context.t.dayActivity(d, plan.days[d - 1].category),
                       style: _sans(context, 13, color: pal.text)),
                   const Spacer(),
-                  Text('${plan.minutesDone[d] ?? plan.minutesFor(d)} min',
+                  Text(context.t.shortDuration(plan.minutesDone[d] ?? plan.minutesFor(d)),
                       style: _sans(context, 11, color: pal.muted)),
                 ],
               ),
@@ -436,15 +414,15 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   Text(t.todaysStep,
                       style: _sans(context, 13, color: pal.text)),
                   const Spacer(),
-                  Text('Day $last',
+                  Text(context.t.dayNumber(last),
                       style: _sans(context, 11, color: pal.muted)),
                 ],
               ),
               const SizedBox(height: 8),
-              Text(lastDay.step.title,
+              Text(context.t.planStepText(lastDay.step.title),
                   style: _sans(context, 13, color: pal.text, w: FontWeight.w600)),
               const SizedBox(height: 2),
-              Text(lastDay.step.description,
+              Text(context.t.planStepText(lastDay.step.description),
                   style: _sans(context, 12, color: pal.muted, h: 1.4)),
             ],
           ),
@@ -509,11 +487,11 @@ class _Intro extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
       children: [
         const SizedBox(height: 12),
-        Text('Your ${plan.total} day plan',
+        Text(context.t.yourDayPlanTitle(plan.total),
             style: _serif(context, 34, color: pal.text)),
         const SizedBox(height: 12),
         Text(
-          "Each day, you'll receive one small phone free step to make a little more room for what matters.",
+          context.t.introDailyStepBody,
           style: _sans(context, 13, color: pal.muted, h: 1.5),
         ),
         const SizedBox(height: 24),
@@ -537,7 +515,7 @@ class _Intro extends StatelessWidget {
                       children: [
                         Text('${plan.total}',
                             style: _serif(context, 22, color: pal.onPrimary)),
-                        Text('DAYS',
+                        Text(context.t.daysUpper,
                             style: _sans(context, 8,
                                 color: pal.onPrimary, w: FontWeight.w700)),
                       ],
@@ -548,11 +526,11 @@ class _Intro extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('One step at a time',
+                        Text(context.t.oneStepAtATime,
                             style: _serif(context, 20, color: pal.text)),
                         const SizedBox(height: 4),
                         Text(
-                            'Short, thoughtful moments designed to fit real days.',
+                            context.t.introThoughtfulMoments,
                             style: _sans(context, 11, color: pal.muted, h: 1.4)),
                       ],
                     ),
@@ -574,7 +552,7 @@ class _Intro extends StatelessWidget {
                             Icon(_iconFor(chips[i]),
                                 size: 22, color: pal.primary),
                             const SizedBox(height: 6),
-                            Text(_short[chips[i]] ?? chips[i],
+                            Text(context.t.categoryShort(chips[i]),
                                 style: _sans(context, 11,
                                     color: pal.text, w: FontWeight.w600)),
                           ],
@@ -595,14 +573,14 @@ class _Intro extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'No scores or pressure. Simply begin your journey as you are.',
+                context.t.introNoPressure,
                 style: _sans(context, 11, color: pal.muted, h: 1.4),
               ),
             ),
           ],
         ),
         const SizedBox(height: 28),
-        _PrimaryButton(pal: pal, label: "Let's go", icon: Icons.arrow_forward, onTap: onGo),
+        _PrimaryButton(pal: pal, label: context.t.letsGo, icon: Icons.arrow_forward, onTap: onGo),
       ],
     );
   }
@@ -661,7 +639,7 @@ class _DayChips extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(isToday ? 'TODAY' : 'DAY',
+                    Text(isToday ? context.t.todayUpper : context.t.dayUpper,
                         style: _sans(context, 8,
                             color: isSel ? pal.onPrimary : pal.muted,
                             w: FontWeight.w700,
@@ -848,21 +826,21 @@ class _TodayCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text('DAY ${day.day} · TODAY',
+                      Text(context.t.dayTodayUpper(day.day),
                           style: _sans(context, 10,
                               color: pal.primary, w: FontWeight.w700, ls: 1)),
                       const Spacer(),
                       Icon(Icons.timer_outlined, size: 14, color: pal.muted),
                       const SizedBox(width: 4),
-                      Text('$minutes min',
+                      Text(context.t.shortDuration(minutes),
                           style: _sans(context, 11, color: pal.muted)),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Text(_momentTitle(day, minutes),
+                  Text(_momentTitle(context, day, minutes),
                       style: _serif(context, 26, color: pal.text)),
                   const SizedBox(height: 8),
-                  Text(day.step.description,
+                  Text(context.t.planStepText(day.step.description),
                       style: _sans(context, 12, color: pal.muted, h: 1.5)),
                   const SizedBox(height: 18),
                   if (active != null) ...[
@@ -872,7 +850,7 @@ class _TodayCard extends StatelessWidget {
                             size: 16, color: pal.primary),
                         const SizedBox(width: 8),
                         Text(
-                            'In progress · ${_mmss(active!.end.difference(DateTime.now()))} left',
+                            context.t.inProgressLeft(_mmss(active!.end.difference(DateTime.now()))),
                             style: _sans(context, 12,
                                 color: pal.primary, w: FontWeight.w600)),
                       ],
@@ -880,13 +858,13 @@ class _TodayCard extends StatelessWidget {
                     const SizedBox(height: 12),
                     _PrimaryButton(
                         pal: pal,
-                        label: 'Open moment',
+                        label: context.t.openMoment,
                         icon: Icons.timer_outlined,
                         onTap: onStart),
                   ] else
                     _PrimaryButton(
                         pal: pal,
-                        label: "Start today's moment",
+                        label: context.t.startTodaysMoment,
                         icon: Icons.play_arrow_rounded,
                         onTap: onStart),
                 ],
@@ -902,10 +880,10 @@ class _TodayCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Adjust today's goal",
+              Text(context.t.adjustTodaysGoal,
                   style: _sans(context, 13, color: pal.text, w: FontWeight.w600)),
               const SizedBox(height: 2),
-              Text('Choose what works for you today',
+              Text(context.t.chooseGoalToday,
                   style: _sans(context, 11, color: pal.muted)),
               const SizedBox(height: 12),
               Row(
@@ -921,7 +899,7 @@ class _TodayCard extends StatelessWidget {
                             color: m == minutes ? pal.primary : pal.hero,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Text('$m min',
+                          child: Text(context.t.shortDuration(m),
                               style: _sans(context, 12,
                                   color: m == minutes ? pal.onPrimary : pal.text,
                                   w: FontWeight.w600)),
@@ -955,8 +933,8 @@ class _TodayCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                           const [15, 30, 45].contains(minutes)
-                              ? 'Set your own time'
-                              : 'Your time: ${_fmtMin(minutes)} · change',
+                              ? context.t.setOwnTime
+                              : context.t.yourCustomTime(context.t.shortDuration(minutes)),
                           style: _sans(context, 12,
                               color: const [15, 30, 45].contains(minutes)
                                   ? pal.text
@@ -972,12 +950,6 @@ class _TodayCard extends StatelessWidget {
       ],
     );
   }
-}
-
-String _fmtMin(int m) {
-  if (m < 60) return '$m min';
-  final h = m ~/ 60, r = m % 60;
-  return r == 0 ? '$h h' : '$h h $r min';
 }
 
 /// Kendi süreni seç: alarm kurar gibi saat + dakika tekerlekleri.
@@ -1070,9 +1042,9 @@ class _GoalSheetState extends State<_GoalSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Set your own time', style: _serif(context, 24, color: pal.text)),
+            Text(context.t.setOwnTime, style: _serif(context, 24, color: pal.text)),
             const SizedBox(height: 4),
-            Text('Between 15 min and 3 h',
+            Text(context.t.customTimeRange,
                 style: _sans(context, 11, color: pal.muted)),
             const SizedBox(height: 8),
             SizedBox(
@@ -1084,7 +1056,7 @@ class _GoalSheetState extends State<_GoalSheet> {
                 },
                 child: Row(
                   children: [
-                    _wheel(_hc, 4, (i) => '$i h', (i) => _h = i),
+                    _wheel(_hc, 4, (i) => context.t.shortHours(i), (i) => _h = i),
                     _wheel(
                         _mc,
                         12,
@@ -1101,7 +1073,7 @@ class _GoalSheetState extends State<_GoalSheet> {
                   child: TextButton(
                     style: TextButton.styleFrom(foregroundColor: pal.muted),
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
+                    child: Text(context.t.cancel),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1109,7 +1081,7 @@ class _GoalSheetState extends State<_GoalSheet> {
                   flex: 2,
                   child: _PrimaryButton(
                     pal: pal,
-                    label: 'Save ${_fmtMin(_total.clamp(_GoalSheet.minMin, _GoalSheet.maxMin))}',
+                    label: context.t.saveDuration(context.t.shortDuration(_total.clamp(_GoalSheet.minMin, _GoalSheet.maxMin))),
                     icon: Icons.check,
                     onTap: () => Navigator.pop(
                         context,
@@ -1158,12 +1130,12 @@ class _CompleteCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        Text('A MOMENT MADE',
+        Text(context.t.momentMadeUpper,
             style: _sans(context, 10, color: pal.primary, w: FontWeight.w700, ls: 1)),
         const SizedBox(height: 8),
-        Text('Day $day complete', style: _serif(context, 34, color: pal.text)),
+        Text(context.t.dayComplete(day), style: _serif(context, 34, color: pal.text)),
         const SizedBox(height: 8),
-        Text('You spent $minutes minutes phone-free today.',
+        Text(context.t.phoneFreeToday(minutes),
             textAlign: TextAlign.center,
             style: _sans(context, 12, color: pal.muted)),
         const SizedBox(height: 22),
@@ -1178,13 +1150,13 @@ class _CompleteCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 next == null
-                    ? "You've reached the end of your plan. Well done."
-                    : 'Your next small step will be ready tomorrow.',
+                    ? context.t.planFinished
+                    : context.t.nextStepTomorrow,
                 textAlign: TextAlign.center,
                 style: _serif(context, 20, color: pal.text),
               ),
               const SizedBox(height: 6),
-              Text("For now, there's nothing more to do.",
+              Text(context.t.nothingElseToday,
                   textAlign: TextAlign.center,
                   style: _sans(context, 11, color: pal.muted)),
             ],
@@ -1213,11 +1185,11 @@ class _CompleteCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('UP NEXT · DAY $nextNumber',
+                        Text(context.t.upNextDay(nextNumber),
                             style: _sans(context, 9,
                                 color: pal.muted, w: FontWeight.w700, ls: 0.5)),
                         const SizedBox(height: 2),
-                        Text(next!.step.title,
+                        Text(context.t.planStepText(next!.step.title),
                             style: _serif(context, 17, color: pal.text)),
                       ],
                     ),
@@ -1254,14 +1226,14 @@ class _FutureCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
               child: Row(
                 children: [
-                  Text('DAY ${day.day}',
+                  Text(context.t.dayUpperNumber(day.day),
                       style: _sans(context, 10,
                           color: pal.primary, w: FontWeight.w700, ls: 1)),
                   const Spacer(),
                   _Tag(
                       pal: pal,
                       icon: Icons.lock_outline,
-                      text: 'AVAILABLE IN $daysAway ${daysAway == 1 ? 'DAY' : 'DAYS'}'),
+                      text: context.t.availableInDays(daysAway)),
                 ],
               ),
             ),
@@ -1271,10 +1243,10 @@ class _FutureCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(day.step.title,
+                  Text(context.t.planStepText(day.step.title),
                       style: _serif(context, 24, color: pal.text)),
                   const SizedBox(height: 6),
-                  Text(day.step.description,
+                  Text(context.t.planStepText(day.step.description),
                       style: _sans(context, 12, color: pal.muted, h: 1.5)),
                 ],
               ),
@@ -1292,7 +1264,7 @@ class _FutureCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'For now, stay with today. This step will open when it\'s time.',
+                  context.t.futureStepInfo,
                   style: _sans(context, 11, color: pal.muted, h: 1.4),
                 ),
               ),
@@ -1324,14 +1296,14 @@ class _PastCard extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
           child: Row(
             children: [
-              Text('DAY ${day.day}',
+              Text(context.t.dayUpperNumber(day.day),
                   style: _sans(context, 10,
                       color: pal.primary, w: FontWeight.w700, ls: 1)),
               const Spacer(),
               _Tag(
                 pal: pal,
                 icon: done ? Icons.check : null,
-                text: done ? 'COMPLETED GENTLY' : 'NOT COMPLETED',
+                text: done ? context.t.completedGentlyUpper : context.t.notCompletedUpper,
               ),
             ],
           ),
@@ -1342,13 +1314,13 @@ class _PastCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_momentTitle(day, minutes),
+              Text(_momentTitle(context, day, minutes),
                   style: _serif(context, 24, color: pal.text)),
               const SizedBox(height: 6),
               Text(
                 done
-                    ? day.step.description
-                    : "That's okay. Every day is a fresh start.",
+                    ? context.t.planStepText(day.step.description)
+                    : context.t.freshStart,
                 style: _sans(context, 12, color: pal.muted, h: 1.5),
               ),
             ],
@@ -1465,21 +1437,21 @@ class _MomentScreenState extends State<_MomentScreen> {
                     child: Row(
                       children: [
                         Icon(Icons.chevron_left, color: pal.muted),
-                        Text('Back', style: _sans(context, 12, color: pal.muted)),
+                        Text(context.t.back, style: _sans(context, 12, color: pal.muted)),
                       ],
                     ),
                   ),
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      Text("DAY ${widget.dayNumber} TODAY'S ACTIVITY",
+                      Text(context.t.todayActivityUpper(widget.dayNumber),
                           style: _sans(context, 10,
                               color: pal.primary, w: FontWeight.w700, ls: 1)),
                       const Spacer(),
                       _Tag(
                           pal: pal,
                           icon: Icons.wb_twilight,
-                          text: widget.timeOfDay.toUpperCase()),
+                          text: context.t.localizedTimeOfDay(widget.timeOfDay).toUpperCase()),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -1527,8 +1499,8 @@ class _MomentScreenState extends State<_MomentScreen> {
                         Expanded(
                           child: Text(
                             running
-                                ? 'Leave your phone in $_boxName until the time is up. Your moment keeps running if you go back.'
-                                : 'Leave your phone in $_boxName. Your minutes begin as soon as it is inside.',
+                                ? context.t.phoneInBoxRunning(_boxName)
+                                : context.t.phoneInBoxBeforeStart(_boxName),
                             style: _sans(context, 11, color: pal.muted, h: 1.4),
                           ),
                         ),
@@ -1539,19 +1511,19 @@ class _MomentScreenState extends State<_MomentScreen> {
                   if (!running) ...[
                     _PrimaryButton(
                         pal: pal,
-                        label: 'Start the moment',
+                        label: context.t.startTheMoment,
                         icon: Icons.play_arrow_rounded,
                         onTap: _begin),
                     const SizedBox(height: 10),
                     Text(
-                      'With the $_boxName box, this starts automatically when you place your phone inside.',
+                      context.t.boxAutomaticStart(_boxName),
                       textAlign: TextAlign.center,
                       style: _sans(context, 10, color: pal.muted, h: 1.4),
                     ),
                   ] else ...[
                     _PrimaryButton(
                         pal: pal,
-                        label: "I'm done",
+                        label: context.t.imDone,
                         icon: Icons.check,
                         onTap: _finishEarly),
                     const SizedBox(height: 6),
@@ -1559,7 +1531,7 @@ class _MomentScreenState extends State<_MomentScreen> {
                       child: TextButton(
                         style: TextButton.styleFrom(foregroundColor: pal.muted),
                         onPressed: _cancel,
-                        child: const Text('Cancel this moment'),
+                        child: Text(context.t.cancelThisMoment),
                       ),
                     ),
                   ],
@@ -1602,15 +1574,6 @@ class _RingPainter extends CustomPainter {
 }
 
 // ───────────────────────── Today-pagina ─────────────────────────
-
-const _tips = <String>[
-  'Put your phone in another room while you do this.',
-  'A little time away makes room for more.',
-  'Keep something nice where you usually keep your phone.',
-  'Start small. A slow moment counts as much as a long one.',
-  'Turn on Do Not Disturb before you begin.',
-  'Notice how you feel when you are done.',
-];
 
 /// Inhoud van de Today-pagina: dagbalk, activiteitskaart en een tip.
 /// Gebruik in today.dart: const TodayActivity()
@@ -1683,8 +1646,8 @@ class _TodayActivityState extends State<TodayActivity> {
         builder: (_) => _MomentScreen(
           dayNumber: day.day,
           minutes: minutes,
-          title: _momentTitle(day, minutes),
-          description: day.step.description,
+          title: _momentTitle(context, day, minutes),
+          description: context.t.planStepText(day.step.description),
           timeOfDay: plan.timeOfDay,
           resume: running,
         ),
@@ -1727,7 +1690,7 @@ class _TodayActivityState extends State<TodayActivity> {
     final done = plan.completed.contains(d);
     final minutes = done ? (plan.minutesDone[d] ?? plan.minutesFor(d)) : plan.minutesFor(d);
     final running = _active != null && _active!.day == d ? _active : null;
-    final tip = _tips[d % _tips.length];
+    final tip = context.t.dailyTips[d % context.t.dailyTips.length];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1735,10 +1698,10 @@ class _TodayActivityState extends State<TodayActivity> {
         // Dagbalk
         Row(
           children: [
-            Text('Day $d of ${plan.total}',
+            Text(context.t.dayOfPlan(d, plan.total),
                 style: _sans(context, 13, color: pal.text, w: FontWeight.w600)),
             const Spacer(),
-            Text('YOUR ${plan.total}-DAY PLAN',
+            Text(context.t.yourDayPlanUpper(plan.total),
                 style: _sans(context, 9, color: pal.muted, w: FontWeight.w600, ls: 1)),
           ],
         ),
@@ -1790,7 +1753,7 @@ class _TodayActivityState extends State<TodayActivity> {
                   Positioned(
                     top: 14,
                     right: 14,
-                    child: _Tag(text: 'COMPLETED', pal: pal),
+                    child: _Tag(text: context.t.completedUpper, pal: pal),
                   ),
               ],
             ),
@@ -1801,24 +1764,24 @@ class _TodayActivityState extends State<TodayActivity> {
                 children: [
                   Row(
                     children: [
-                      Text("TODAY'S CHALLENGE",
+                      Text(context.t.todaysChallengeUpper,
                           style: _sans(context, 10,
                               color: pal.primary, w: FontWeight.w700, ls: 1)),
                       const Spacer(),
                       Icon(Icons.timer_outlined, size: 14, color: pal.muted),
                       const SizedBox(width: 4),
-                      Text(_fmtMin(minutes),
+                      Text(context.t.shortDuration(minutes),
                           style: _sans(context, 11, color: pal.muted)),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Text(_momentTitle(day, minutes),
+                  Text(_momentTitle(context, day, minutes),
                       style: _serif(context, 26, color: pal.text)),
                   const SizedBox(height: 8),
                   Text(
                       done
-                          ? 'You made time for yourself. Well done.'
-                          : day.step.description,
+                          ? context.t.wellDoneMadeTime
+                          : context.t.planStepText(day.step.description),
                       style: _sans(context, 12, color: pal.muted, h: 1.5)),
                   if (!done) ...[
                     const SizedBox(height: 18),
@@ -1829,7 +1792,7 @@ class _TodayActivityState extends State<TodayActivity> {
                               size: 16, color: pal.primary),
                           const SizedBox(width: 8),
                           Text(
-                              'In progress · ${_mmss(running.end.difference(DateTime.now()))} left',
+                              context.t.inProgressLeft(_mmss(running.end.difference(DateTime.now()))),
                               style: _sans(context, 12,
                                   color: pal.primary, w: FontWeight.w600)),
                         ],
@@ -1837,13 +1800,13 @@ class _TodayActivityState extends State<TodayActivity> {
                       const SizedBox(height: 12),
                       _PrimaryButton(
                           pal: pal,
-                          label: 'Open moment',
+                          label: context.t.openMoment,
                           icon: Icons.timer_outlined,
                           onTap: () => _openMoment(plan, day)),
                     ] else ...[
                       _PrimaryButton(
                           pal: pal,
-                          label: 'Start activity',
+                          label: context.t.startActivity,
                           icon: Icons.play_arrow_rounded,
                           onTap: () => _openMoment(plan, day)),
                       const SizedBox(height: 6),
@@ -1852,7 +1815,7 @@ class _TodayActivityState extends State<TodayActivity> {
                           style: TextButton.styleFrom(foregroundColor: pal.muted),
                           onPressed: () => _changeTime(plan, d, minutes, pal),
                           icon: const Icon(Icons.alarm, size: 16),
-                          label: Text('Change time',
+                          label: Text(context.t.changeTime,
                               style: _sans(context, 12, color: pal.muted)),
                         ),
                       ),
