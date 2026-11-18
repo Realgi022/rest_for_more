@@ -200,6 +200,12 @@ class AppStrings {
   String get seconds => _nl ? 'Seconden' : 'Seconds';
   String get done => _nl ? 'Klaar' : 'Done';
   String get timerEnded => _nl ? 'De timer is afgelopen' : 'The timer has ended';
+  String get timerCompletionNotifications =>
+      _nl ? 'Timer afgelopen' : 'Timer completion';
+  String get exactTimerAlerts => _nl ? 'Exacte timermeldingen' : 'Exact timer alerts';
+  String get exactTimerAlertsDescription => _nl
+      ? 'Sta alarmen en herinneringen toe voor meldingen op tijd, ook als je telefoon vergrendeld is.'
+      : 'Allow alarms and reminders so alerts arrive on time, even when your phone is locked.';
   String get cancel => _nl ? 'Annuleren' : 'Cancel';
   String get pause => _nl ? 'Pauzeren' : 'Pause';
   String get resume => _nl ? 'Hervatten' : 'Resume';

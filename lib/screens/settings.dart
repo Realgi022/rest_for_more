@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../localization/app_language.dart';
+import '../services/notification_service.dart';
 import '../services/time_format_controller.dart';
 import '../theme/app_spacing.dart';
 import '../theme/theme_controller.dart';
@@ -102,6 +103,16 @@ class SettingsScreen extends StatelessWidget {
                 );
               },
             ),
+            if (NotificationService.supportsTimerAlerts) ...[
+              const SizedBox(height: 12),
+              _SettingsTile(
+                icon: Icons.notifications_outlined,
+                title: t.exactTimerAlerts,
+                description: t.exactTimerAlertsDescription,
+                trailing: const Icon(Icons.keyboard_arrow_right),
+                onTap: NotificationService.requestExactTimerAlerts,
+              ),
+            ],
           ],
         ),
       ),
