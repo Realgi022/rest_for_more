@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../localization/app_language.dart';
 import '../services/app_blocker_service.dart';
+import '../theme/app_card.dart';
 import '../theme/app_spacing.dart';
 
 class BlockedAppsScreen extends StatefulWidget {
@@ -146,14 +147,9 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
 
                   return Card(
                     elevation: 0,
-                    color: theme.colorScheme.secondary.withValues(alpha: 0.16),
+                    color: appCardColor(context),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                      side: BorderSide(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.10,
-                        ),
-                      ),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: SwitchListTile(
                       value: blocked,
@@ -198,13 +194,7 @@ class _PermissionCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.secondary.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
-        ),
-      ),
+      decoration: appCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -218,7 +208,7 @@ class _PermissionCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   enabled ? t.blockingEnabled : t.enableAppBlocking,
-                  style: theme.textTheme.titleMedium,
+                  style: theme.textTheme.headlineMedium?.copyWith(fontSize: 22),
                 ),
               ),
             ],
@@ -264,10 +254,7 @@ class _InfoCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.secondary.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(20),
-      ),
+      decoration: appCardDecoration(context),
       child: Row(
         children: [
           Icon(icon, color: theme.colorScheme.primary),
@@ -276,7 +263,7 @@ class _InfoCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: theme.textTheme.titleMedium),
+                Text(title, style: theme.textTheme.headlineMedium?.copyWith(fontSize: 22)),
                 const SizedBox(height: 4),
                 Text(message, style: theme.textTheme.bodySmall),
               ],

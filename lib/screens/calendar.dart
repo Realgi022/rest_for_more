@@ -9,9 +9,7 @@ class CalendarScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Calender'),
-          ],
+          children: [Text('Calender')],
         ),
       ),
     );
