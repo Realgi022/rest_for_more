@@ -1,0 +1,125 @@
+import 'package:shared_preferences/shared_preferences.dart';
+
+class PlanRepository {
+  static Future<List<String>> loadInterests() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getStringList('onb_interests') ?? [];
+  }
+
+  static Future<List<String>> loadTime() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getStringList('onb_time') ?? ['Evening'];
+  }
+
+  static Future<List<String>> loadGoal() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getStringList('onb_goal') ?? ['Create more phone-free moments'];
+  }
+
+  static Future<List<String>> loadDuration() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getStringList('onb_duration') ?? ['30 minutes'];
+  }
+
+  static Future<List<String>> loadLength() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getStringList('onb_length') ?? ['14 days'];
+  }
+
+  static Future<String?> loadPlanStart() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getString('plan_start');
+  }
+
+  static Future<void> savePlanStart(String start) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString('plan_start', start);
+  }
+
+  static Future<int> loadPlanOffset() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getInt('plan_offset') ?? 0;
+  }
+
+  static Future<void> savePlanOffset(int offset) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setInt('plan_offset', offset);
+  }
+
+  static Future<List<String>> loadCompleted() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getStringList('plan_completed') ?? [];
+  }
+
+  static Future<void> saveCompleted(List<String> completed) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setStringList('plan_completed', completed);
+  }
+
+  static Future<int?> loadGoalOverride(int day) async {
+    final p = await SharedPreferences.getInstance();
+    return p.getInt('plan_goal_$day');
+  }
+
+  static Future<void> saveGoalOverride(int day, int minutes) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setInt('plan_goal_$day', minutes);
+  }
+
+  static Future<int?> loadMinutesDone(int day) async {
+    final p = await SharedPreferences.getInstance();
+    return p.getInt('plan_done_min_$day');
+  }
+
+  static Future<void> saveMinutesDone(int day, int minutes) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setInt('plan_done_min_$day', minutes);
+  }
+
+  static Future<void> complete(int day, {int? minutes}) async {
+    final p = await SharedPreferences.getInstance();
+
+    final set = (p.getStringList('plan_completed') ?? []).toSet()
+    ..add('$day');
+
+    await p.setStringList('plan_completed', set.toList());
+
+    if (minutes != null) {
+      await p.setInt('plan_done_min_$day', minutes);
+    }
+  }
+
+  static Future<void> setGoal(int day, int minutes) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setInt('plan_goal_$day', minutes);
+  }
+
+  static Future<bool> introSeen() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getBool('journey_intro_seen') ?? false;
+  }
+
+  static Future<void> markIntroSeen() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool('journey_intro_seen', true);
+  }
+
+  static Future<void> debugNextDay() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setInt('plan_offset', (p.getInt('plan_offset') ?? 0) + 1);
+  }
+
+  static Future<void> reset() async {
+    final p = await SharedPreferences.getInstance();
+
+    await p.remove('plan_start');
+    await p.remove('plan_completed');
+    await p.remove('plan_offset');
+    await p.remove('journey_intro_seen');
+
+    for (var d = 1; d <= 30; d++) {
+      await p.remove('plan_goal_$d');
+      await p.remove('plan_done_min_$d');
+    }
+  }
+}
