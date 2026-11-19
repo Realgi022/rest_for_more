@@ -11,6 +11,8 @@ import '../localization/app_language.dart';
 import '../services/plan_service.dart';
 import '../theme/app_card.dart';
 
+import '../models/moment_session.dart';
+
 const _icons = <String, IconData>{
   'Reading': Icons.menu_book_outlined,
   'Walking': Icons.directions_walk,

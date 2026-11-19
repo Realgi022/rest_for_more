@@ -1,12 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/activity.dart';
+import '../models/moment_session.dart';
 
-class MomentSession {
-  final int day, minutes;
-  final DateTime start;
-  const MomentSession(this.day, this.minutes, this.start);
-  DateTime get end => start.add(Duration(minutes: minutes));
-}
 
 class PlanDay {
   final int day;
