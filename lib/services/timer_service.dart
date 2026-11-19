@@ -86,7 +86,9 @@ class FocusTimerService extends ChangeNotifier {
   }
 
   void _startCountdown() {
-    _endTime = DateTime.now().add(remaining);
+    final deadline = DateTime.now().add(remaining);
+    _endTime = deadline;
+    unawaited(NotificationService.scheduleTimerCompletion(deadline));
 
     isRunning = true;
     isPaused = false;
@@ -117,6 +119,7 @@ class FocusTimerService extends ChangeNotifier {
   }
 
   void pauseTimer() {
+    unawaited(NotificationService.cancelTimerCompletion());
     if (_endTime != null) {
       remaining = _endTime!.difference(DateTime.now());
 
@@ -147,6 +150,7 @@ class FocusTimerService extends ChangeNotifier {
   Future<void> finishTimer() async {
     _timer?.cancel();
     _endTime = null;
+    unawaited(NotificationService.notifyTimerCompleted());
 
     NotificationService.cancelTimerNotification();
 
@@ -166,6 +170,7 @@ class FocusTimerService extends ChangeNotifier {
   }
 
   void cancelTimer() {
+    unawaited(NotificationService.cancelTimerCompletion());
     _timer?.cancel();
     _endTime = null;
 
