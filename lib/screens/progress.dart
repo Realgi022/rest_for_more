@@ -12,6 +12,8 @@ import '../services/plan_service.dart';
 import '../theme/app_card.dart';
 
 import '../models/moment_session.dart';
+import '../models/plan_day.dart';
+import '../models/plan_data.dart';
 
 const _icons = <String, IconData>{
   'Reading': Icons.menu_book_outlined,
