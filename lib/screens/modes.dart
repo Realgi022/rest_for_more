@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../localization/app_language.dart';
+import '../theme/app_card.dart';
 import '../theme/app_spacing.dart';
 
 class ModesScreen extends StatelessWidget {
@@ -37,7 +38,7 @@ class ModesScreen extends StatelessWidget {
               icon: Icons.menu_book_outlined,
               label: t.reading,
               description: t.readingDescription,
-              onTap: () {},
+              onTap: () => context.go('/modes/reading'),
             ),
 
             const SizedBox(height: 12),
@@ -46,7 +47,7 @@ class ModesScreen extends StatelessWidget {
               icon: Icons.wb_twilight_outlined,
               label: t.evening,
               description: t.eveningDescription,
-              onTap: () {},
+              onTap: () => context.go('/modes/evening'),
             ),
 
             const SizedBox(height: 12),
@@ -55,7 +56,7 @@ class ModesScreen extends StatelessWidget {
               icon: Icons.wb_sunny_outlined,
               label: t.morning,
               description: t.morningDescription,
-              onTap: () {},
+              onTap: () => context.go('/modes/morning'),
             ),
           ],
         ),
@@ -83,19 +84,11 @@ class _ModeTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(appCardRadius),
       splashFactory: NoSplash.splashFactory,
       child: Container(
         padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          // color: theme.cardTheme.color,
-          color: theme.colorScheme.secondary.withValues(alpha: 0.16),
-          // color: theme.colorScheme.secondary.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
-          ),
-        ),
+        decoration: appCardDecoration(context),
         child: Row(
           children: [
             Container(
@@ -114,7 +107,7 @@ class _ModeTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: theme.textTheme.titleMedium),
+                  Text(label, style: theme.textTheme.headlineMedium?.copyWith(fontSize: 22)),
 
                   const SizedBox(height: 4),
 

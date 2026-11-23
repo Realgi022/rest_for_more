@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 
 import '../localization/app_language.dart';
+import '../theme/app_card.dart';
 import '../theme/app_spacing.dart';
 
 class AllStepsScreen extends StatefulWidget {
@@ -179,7 +180,10 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
                       final step = monthlySteps[index];
                       final date = step['date'] as DateTime;
 
-                      return Column(
+                      return Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: appCardDecoration(context),
+                        child: Column(
                         crossAxisAlignment:
                             CrossAxisAlignment.start,
                         children: [
@@ -224,6 +228,7 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
                             style: theme.textTheme.bodyMedium,
                           ),
                         ],
+                        ),
                       );
                     },
                   ),

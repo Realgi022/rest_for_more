@@ -188,7 +188,6 @@ ThemeData _buildTheme({
     // --------------------------
     // TYPOGRAPHY
     // --------------------------
-
     textTheme: appTextTheme.apply(
       bodyColor: textPrimary,
       displayColor: textPrimary,
@@ -197,7 +196,6 @@ ThemeData _buildTheme({
     // --------------------------
     // APP BAR
     // --------------------------
-
     appBarTheme: AppBarTheme(
       backgroundColor: surface,
       foregroundColor: textPrimary,
@@ -211,59 +209,43 @@ ThemeData _buildTheme({
         color: textPrimary,
       ),
 
-      iconTheme: IconThemeData(
-        color: textPrimary,
-        size: 24,
-      ),
+      iconTheme: IconThemeData(color: textPrimary, size: 24),
     ),
 
     // --------------------------
     // CARDS
     // --------------------------
-
     cardTheme: CardThemeData(
       color: surfaceMuted,
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),
 
     // --------------------------
     // FILLED BUTTON
     // --------------------------
-
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: brand,
         foregroundColor: textOnBrand,
 
-        minimumSize: const Size(
-          48,
-          52,
-        ),
+        minimumSize: const Size(48, 52),
 
-        padding: const EdgeInsets.symmetric(
-          horizontal: 24,
-          vertical: 14,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
 
         textStyle: GoogleFonts.montserrat(
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
 
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     ),
 
     // --------------------------
     // ELEVATED BUTTON
     // --------------------------
-
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: brand,
@@ -271,107 +253,71 @@ ThemeData _buildTheme({
 
         elevation: 0,
 
-        minimumSize: const Size(
-          48,
-          52,
-        ),
+        minimumSize: const Size(48, 52),
 
-        padding: const EdgeInsets.symmetric(
-          horizontal: 24,
-          vertical: 14,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
 
         textStyle: GoogleFonts.montserrat(
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
 
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     ),
 
     // --------------------------
     // OUTLINED BUTTON
     // --------------------------
-
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: brand,
 
-        minimumSize: const Size(
-          48,
-          52,
-        ),
+        minimumSize: const Size(48, 52),
 
-        padding: const EdgeInsets.symmetric(
-          horizontal: 24,
-          vertical: 14,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
 
-        side: BorderSide(
-          color: brand,
-          width: 1,
-        ),
+        side: BorderSide(color: brand, width: 1),
 
         textStyle: GoogleFonts.montserrat(
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
 
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     ),
 
     // --------------------------
     // TEXT BUTTON
     // --------------------------
-
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: brand,
 
-        minimumSize: const Size(
-          48,
-          48,
-        ),
+        minimumSize: const Size(48, 48),
 
         textStyle: GoogleFonts.montserrat(
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
 
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
 
     // --------------------------
     // INPUT FIELDS
     // --------------------------
-
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: surfaceMuted,
 
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 16,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
 
-      hintStyle: GoogleFonts.montserrat(
-        color: textSecondary,
-        fontSize: 14,
-      ),
+      hintStyle: GoogleFonts.montserrat(color: textSecondary, fontSize: 14),
 
-      labelStyle: GoogleFonts.montserrat(
-        color: textSecondary,
-        fontSize: 14,
-      ),
+      labelStyle: GoogleFonts.montserrat(color: textSecondary, fontSize: 14),
 
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -385,17 +331,13 @@ ThemeData _buildTheme({
 
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(
-          color: brand,
-          width: 1.5,
-        ),
+        borderSide: BorderSide(color: brand, width: 1.5),
       ),
     ),
 
     // --------------------------
     // NAVIGATION BAR
     // --------------------------
-
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: surface,
       elevation: 0,
@@ -407,82 +349,57 @@ ThemeData _buildTheme({
         borderRadius: BorderRadius.circular(16),
       ),
 
-      labelTextStyle: WidgetStateProperty.resolveWith(
-        (states) {
-          final selected =
-              states.contains(WidgetState.selected);
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
 
-          return GoogleFonts.montserrat(
-            fontSize: 12,
-            fontWeight:
-                selected ? FontWeight.w600 : FontWeight.w400,
-            color: selected ? brand : textSecondary,
-          );
-        },
-      ),
+        return GoogleFonts.montserrat(
+          fontSize: 12,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+          color: selected ? brand : textSecondary,
+        );
+      }),
 
-      iconTheme: WidgetStateProperty.resolveWith(
-        (states) {
-          final selected =
-              states.contains(WidgetState.selected);
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
 
-          return IconThemeData(
-            color: selected ? brand : textSecondary,
-            size: 24,
-          );
-        },
-      ),
+        return IconThemeData(color: selected ? brand : textSecondary, size: 24);
+      }),
     ),
 
     // --------------------------
     // SWITCH
     // --------------------------
-
     switchTheme: SwitchThemeData(
-      thumbColor: WidgetStateProperty.resolveWith(
-        (states) {
-          if (states.contains(WidgetState.selected)) {
-            return textOnBrand;
-          }
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return textOnBrand;
+        }
 
-          return textSecondary;
-        },
-      ),
+        return textSecondary;
+      }),
 
-      trackColor: WidgetStateProperty.resolveWith(
-        (states) {
-          if (states.contains(WidgetState.selected)) {
-            return brand;
-          }
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return brand;
+        }
 
-          return surfaceMuted;
-        },
-      ),
+        return surfaceMuted;
+      }),
     ),
 
     // --------------------------
     // DIVIDERS
     // --------------------------
-
-    dividerTheme: DividerThemeData(
-      color: border,
-      thickness: 1,
-      space: 1,
-    ),
+    dividerTheme: DividerThemeData(color: border, thickness: 1, space: 1),
 
     // --------------------------
     // ICONS
     // --------------------------
-
-    iconTheme: IconThemeData(
-      color: brand,
-      size: 24,
-    ),
+    iconTheme: IconThemeData(color: brand, size: 24),
 
     // --------------------------
     // PROGRESS INDICATORS
     // --------------------------
-
     progressIndicatorTheme: ProgressIndicatorThemeData(
       color: brand,
       linearTrackColor: surfaceMuted,

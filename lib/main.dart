@@ -2,7 +2,7 @@ import 'package:app_blocker/app_blocker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rest_for_more/models/mode_schedule.dart';
-import 'package:rest_for_more/screens/modes/focus_moment_detail.dart';
+import 'package:rest_for_more/screens/modes/mode_moment_detail.dart';
 
 import 'localization/app_language.dart';
 import 'screens/blocked_apps.dart';
@@ -16,6 +16,7 @@ import 'screens/all_steps.dart';
 import 'services/mode_schedule_service.dart';
 import 'services/timer_service.dart';
 import 'services/time_format_controller.dart';
+import 'services/week_start_controller.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 
@@ -69,7 +70,23 @@ final GoRouter router = GoRouter(
               routes: [
                 GoRoute(
                   path: 'focus',
-                  builder: (context, state) => const FocusMomentScreen(),
+                  builder: (context, state) =>
+                      const ModeMomentScreen(modeId: ModeId.focus),
+                ),
+                GoRoute(
+                  path: 'reading',
+                  builder: (context, state) =>
+                      const ModeMomentScreen(modeId: ModeId.reading),
+                ),
+                GoRoute(
+                  path: 'evening',
+                  builder: (context, state) =>
+                      const ModeMomentScreen(modeId: ModeId.evening),
+                ),
+                GoRoute(
+                  path: 'morning',
+                  builder: (context, state) =>
+                      const ModeMomentScreen(modeId: ModeId.morning),
                 ),
               ],
             ),
@@ -119,15 +136,18 @@ Future<void> main() async {
   await appLanguageController.load();
   await themeController.load();
   await timeFormatController.load();
+  await weekStartController.load();
   onboardingDone = await OnboardingFlow.isDone();
   await modeScheduleService.load();
-  modeScheduleService.registerActivator(ModeId.focus, (_, remaining) {
-    final timer = FocusTimerService.instance;
+  for (final modeId in ModeId.values) {
+    modeScheduleService.registerActivator(modeId, (_, remaining) {
+      final timer = FocusTimerService.instance;
 
-    if (timer.timerStarted) return;
+      if (timer.timerStarted) return;
 
-    timer.startWithDuration(remaining);
-  });
+      timer.startWithDuration(remaining);
+    });
+  }
   modeScheduleService.startRunner();
   runApp(const MyApp());
 }
@@ -310,13 +330,13 @@ class _SwipePageContainerState extends State<SwipePageContainer> {
   Widget build(BuildContext context) {
     final currentPath = GoRouterState.of(context).uri.path;
 
-    final isFocusPage = currentPath == '/modes/focus';
+    final isModeDetailPage = currentPath.startsWith('/modes/');
 
     return PageView(
       controller: _pageController,
 
       // Disable swiping while on FocusScreen
-      physics: isFocusPage
+      physics: isModeDetailPage
           ? const NeverScrollableScrollPhysics()
           : const PageScrollPhysics(),
 

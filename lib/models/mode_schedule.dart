@@ -19,7 +19,10 @@ enum ModeId {
 
 class ModeSchedule {
   final String id;
+  final String name;
   final ModeId modeId;
+  final List<String> dates;
+  final bool repeatWeekly;
   final List<int> weekdays;
   final int startTimeMinutes;
   final int endTimeMinutes;
@@ -27,7 +30,10 @@ class ModeSchedule {
 
   const ModeSchedule({
     required this.id,
+    required this.name,
     required this.modeId,
+    this.dates = const [],
+    this.repeatWeekly = true,
     required this.weekdays,
     required this.startTimeMinutes,
     required this.endTimeMinutes,
@@ -44,7 +50,10 @@ class ModeSchedule {
 
   ModeSchedule copyWith({
     String? id,
+    String? name,
     ModeId? modeId,
+    List<String>? dates,
+    bool? repeatWeekly,
     List<int>? weekdays,
     int? startTimeMinutes,
     int? endTimeMinutes,
@@ -52,7 +61,10 @@ class ModeSchedule {
   }) {
     return ModeSchedule(
       id: id ?? this.id,
+      name: name ?? this.name,
       modeId: modeId ?? this.modeId,
+      dates: dates ?? this.dates,
+      repeatWeekly: repeatWeekly ?? this.repeatWeekly,
       weekdays: weekdays ?? this.weekdays,
       startTimeMinutes: startTimeMinutes ?? this.startTimeMinutes,
       endTimeMinutes: endTimeMinutes ?? this.endTimeMinutes,
@@ -63,7 +75,10 @@ class ModeSchedule {
   Map<String, Object?> toJson() {
     return {
       'id': id,
+      'name': name,
       'modeId': modeId.value,
+      'dates': dates,
+      'repeatWeekly': repeatWeekly,
       'weekdays': weekdays,
       'startTimeMinutes': startTimeMinutes,
       'endTimeMinutes': endTimeMinutes,
@@ -74,7 +89,10 @@ class ModeSchedule {
   factory ModeSchedule.fromJson(Map<String, Object?> json) {
     return ModeSchedule(
       id: json['id'] as String,
+      name: (json['name'] as String?) ?? 'Schedule',
       modeId: ModeId.fromValue(json['modeId'] as String),
+      dates: (json['dates'] as List?)?.cast<String>() ?? const [],
+      repeatWeekly: json['repeatWeekly'] as bool? ?? true,
       weekdays: (json['weekdays'] as List).cast<int>()..sort(),
       startTimeMinutes: json['startTimeMinutes'] as int,
       endTimeMinutes: json['endTimeMinutes'] as int,
