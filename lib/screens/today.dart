@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../localization/app_language.dart';
 import '../models/mode_schedule.dart';
 import '../services/mode_schedule_service.dart';
-import '../services/time_format_controller.dart';
+import '../controllers/time_format_controller.dart';
 import '../theme/app_spacing.dart';
 import 'progress.dart' show TodayActivity;
 

@@ -6,8 +6,8 @@ import 'package:rest_for_more/localization/app_language.dart';
 import 'package:rest_for_more/models/mode_schedule.dart';
 import 'package:rest_for_more/services/mode_schedule_service.dart';
 import 'package:rest_for_more/services/timer_service.dart';
-import 'package:rest_for_more/services/time_format_controller.dart';
-import 'package:rest_for_more/services/week_start_controller.dart';
+import 'package:rest_for_more/controllers/time_format_controller.dart';
+import 'package:rest_for_more/controllers/week_start_controller.dart';
 
 class ModeMomentScreen extends StatefulWidget {
   final ModeId modeId;

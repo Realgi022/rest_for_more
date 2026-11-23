@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rest_for_more/services/time_format_controller.dart';
+import 'package:rest_for_more/controllers/time_format_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
