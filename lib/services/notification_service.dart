@@ -1,31 +1,164 @@
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+import '../controllers/app_language.dart';
 import '../localization/app_language.dart';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
+  static const _completionId = 1002;
+  static bool _initialized = false;
+  static Future<void>? _completionWork;
+  static AndroidScheduleMode? _completionScheduleMode;
+  static bool _requestedPermission = false;
 
-  static Future<void> initialize({
-    required void Function(NotificationResponse response) onAction,
-  }) async {
+  static bool get supportsTimerAlerts =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  static Future<void> _initialize() async {
     const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
+      'ic_timer_notification',
     );
 
     const settings = InitializationSettings(android: androidSettings);
 
-    await _notifications.initialize(
-      settings: settings,
-      onDidReceiveNotificationResponse: onAction,
-    );
-
-    await _notifications
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.requestNotificationsPermission();
+    await _notifications.initialize(settings: settings);
   }
+
+  static AndroidFlutterLocalNotificationsPlugin get _android => _notifications
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >()!;
+
+  static NotificationDetails _completionDetails(AppStrings t) =>
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          'focus_timer_complete',
+          t.timerCompletionNotifications,
+          importance: Importance.high,
+          priority: Priority.high,
+          onlyAlertOnce: true,
+        ),
+      );
+
+  // Serialize updates to the same notification ID when the timer is toggled
+  // quickly. Timer state should never depend on the notification plugin.
+  static Future<void> _updateCompletion(Future<void> Function() update) {
+    if (!supportsTimerAlerts) {
+      return Future.value();
+    }
+    final work = (_completionWork ?? Future<void>.value()).then((_) async {
+      try {
+        if (!_initialized) {
+          await _initialize();
+          _initialized = true;
+        }
+        await update();
+      } catch (error) {
+        debugPrint('Focus timer notification: $error');
+      }
+    });
+    _completionWork = work;
+    return work.whenComplete(() {
+      if (identical(_completionWork, work)) _completionWork = null;
+    });
+  }
+
+  static Future<void> requestExactTimerAlerts() async {
+    if (!supportsTimerAlerts) return;
+    try {
+      if (!(await _android.canScheduleExactNotifications() ?? false)) {
+        await _android.requestExactAlarmsPermission();
+      }
+    } catch (error) {
+      debugPrint('Exact timer alert permission: $error');
+    }
+  }
+
+  static Future<void> _requestPermission() async {
+    try {
+      await _android.requestNotificationsPermission();
+    } catch (error) {
+      debugPrint('Focus timer notification permission: $error');
+    }
+  }
+
+  static Future<void> scheduleTimerCompletion(DateTime endTime) =>
+      _updateCompletion(() async {
+        _completionScheduleMode = null;
+        await _notifications.cancel(id: _completionId);
+        if (!_requestedPermission) {
+          _requestedPermission = true;
+          unawaited(_requestPermission());
+        }
+
+        final t = AppStrings(appLanguageController.value);
+        // The Android plugin truncates the timestamp to whole seconds.
+        // Round up so the alert never appears before the timer reaches zero.
+        const microsPerSecond = Duration.microsecondsPerSecond;
+        final deadline = endTime.microsecondsSinceEpoch;
+        final scheduledDate = tz.TZDateTime.from(
+          DateTime.fromMicrosecondsSinceEpoch(
+            ((deadline + microsPerSecond - 1) ~/ microsPerSecond) *
+                microsPerSecond,
+            isUtc: true,
+          ),
+          tz.UTC,
+        );
+        Future<void> schedule(AndroidScheduleMode mode) async {
+          if (!scheduledDate.isAfter(DateTime.now())) return;
+          await _notifications.zonedSchedule(
+            id: _completionId,
+            title: t.focusTimer,
+            body: t.timerEnded,
+            scheduledDate: scheduledDate,
+            notificationDetails: _completionDetails(t),
+            androidScheduleMode: mode,
+          );
+          _completionScheduleMode = mode;
+        }
+
+        if (await _android.canScheduleExactNotifications() ?? false) {
+          try {
+            await schedule(AndroidScheduleMode.exactAllowWhileIdle);
+            return;
+          } on PlatformException catch (error) {
+            // Access can be revoked between checking and scheduling.
+            if (error.code != 'exact_alarms_not_permitted') rethrow;
+          }
+        }
+        await schedule(AndroidScheduleMode.inexactAllowWhileIdle);
+      });
+
+  static Future<void> cancelTimerCompletion() => _updateCompletion(() async {
+    await _notifications.cancel(id: _completionId);
+    _completionScheduleMode = null;
+  });
+
+  static Future<void> notifyTimerCompleted() => _updateCompletion(() async {
+    if (_completionScheduleMode == AndroidScheduleMode.exactAllowWhileIdle) {
+      return; // Android delivers the exact alarm even when Flutter is paused.
+    }
+
+    if (_completionScheduleMode != null) {
+      // If the inexact alarm has already fired, don't post a second alert.
+      final pending = await _notifications.pendingNotificationRequests();
+      if (!pending.any((request) => request.id == _completionId)) return;
+      await _notifications.cancel(id: _completionId);
+    }
+    _completionScheduleMode = null;
+    final t = AppStrings(appLanguageController.value);
+    await _notifications.show(
+      id: _completionId,
+      title: t.focusTimer,
+      body: t.timerEnded,
+      notificationDetails: _completionDetails(t),
+    );
+  });
 
   // RUNNING TIMER
   static Future<void> showTimerNotification(Duration duration) async {

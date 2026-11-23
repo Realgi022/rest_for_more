@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'focus_history_service.dart';
+import 'notification_service.dart';
 
 class FocusTimerService extends ChangeNotifier {
   FocusTimerService._();
@@ -86,7 +87,9 @@ class FocusTimerService extends ChangeNotifier {
   }
 
   void _startCountdown() {
-    _endTime = DateTime.now().add(remaining);
+    final deadline = DateTime.now().add(remaining);
+    _endTime = deadline;
+    unawaited(NotificationService.scheduleTimerCompletion(deadline));
 
     isRunning = true;
     isPaused = false;
@@ -115,6 +118,7 @@ class FocusTimerService extends ChangeNotifier {
   }
 
   void pauseTimer() {
+    unawaited(NotificationService.cancelTimerCompletion());
     if (_endTime != null) {
       remaining = _endTime!.difference(DateTime.now());
 
@@ -150,6 +154,7 @@ class FocusTimerService extends ChangeNotifier {
 
     _timer?.cancel();
     _endTime = null;
+    unawaited(NotificationService.notifyTimerCompleted());
 
     remaining = Duration.zero;
 
@@ -178,6 +183,7 @@ class FocusTimerService extends ChangeNotifier {
       }
     }
 
+    unawaited(NotificationService.cancelTimerCompletion());
     _timer?.cancel();
     _endTime = null;
 

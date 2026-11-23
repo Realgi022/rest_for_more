@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rest_for_more/localization/app_language.dart';
@@ -6,7 +5,8 @@ import 'package:rest_for_more/models/mode_schedule.dart';
 import 'package:rest_for_more/services/mode_schedule_service.dart';
 import 'package:rest_for_more/services/focus_history_service.dart';
 import 'package:rest_for_more/services/timer_service.dart';
-import 'package:rest_for_more/services/time_format_controller.dart';
+import 'package:rest_for_more/controllers/time_format_controller.dart';
+import 'package:rest_for_more/controllers/week_start_controller.dart';
 
 // Lettertypen komen uit het app-thema, zodat deze pagina er hetzelfde uitziet
 // als de andere pagina's.
@@ -104,14 +104,21 @@ class _PillButton extends StatelessWidget {
   }
 }
 
-class FocusMomentScreen extends StatefulWidget {
-  const FocusMomentScreen({super.key});
+class ModeMomentScreen extends StatefulWidget {
+  final ModeId modeId;
+
+  const ModeMomentScreen({super.key, this.modeId = ModeId.focus});
 
   @override
-  State<FocusMomentScreen> createState() => _FocusMomentScreenState();
+  State<ModeMomentScreen> createState() => _ModeMomentScreenState();
 }
 
-class _FocusMomentScreenState extends State<FocusMomentScreen> {
+/// Korte naam die ook werkt voor oudere verwijzingen naar het Focus-scherm.
+class FocusMomentScreen extends ModeMomentScreen {
+  const FocusMomentScreen({super.key});
+}
+
+class _ModeMomentScreenState extends State<ModeMomentScreen> {
   final timer = FocusTimerService.instance;
 
   @override
@@ -129,9 +136,9 @@ class _FocusMomentScreenState extends State<FocusMomentScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _Header(),
+                    _Header(modeId: widget.modeId),
                     const SizedBox(height: 18),
-                    _TimerCard(),
+                    _TimerCard(modeId: widget.modeId),
                   ],
                 ),
               ),
@@ -144,7 +151,9 @@ class _FocusMomentScreenState extends State<FocusMomentScreen> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header();
+  final ModeId modeId;
+
+  const _Header({required this.modeId});
 
   @override
   Widget build(BuildContext context) {
@@ -157,13 +166,13 @@ class _Header extends StatelessWidget {
         MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
           child: Text(
-            context.t.focus,
+            context.t.modeName(modeId.value),
             style: Theme.of(context).textTheme.headlineMedium,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          context.t.focusMomentTimer,
+          context.t.modeMomentTimer(modeId.value),
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted),
         ),
       ],
@@ -172,29 +181,34 @@ class _Header extends StatelessWidget {
 }
 
 class _TimerCard extends StatelessWidget {
-  _TimerCard();
+  final ModeId modeId;
+
+  const _TimerCard({required this.modeId});
 
   @override
   Widget build(BuildContext context) {
     final timer = FocusTimerService.instance;
 
-    return timer.timerStarted
-        ? const _ActiveTimerCard()
-        : const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _InactiveTimerCard(),
-              SizedBox(height: 36),
-              _ModeScheduleSection(modeId: ModeId.focus),
-              SizedBox(height: 36),
-              _FocusHistorySection(),
-            ],
-          );
+    if (timer.timerStarted) return const _ActiveTimerCard();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _InactiveTimerCard(modeId: modeId),
+        const SizedBox(height: 36),
+        _ModeScheduleSection(modeId: modeId),
+        if (modeId == ModeId.focus) ...[
+          const SizedBox(height: 36),
+          const _FocusHistorySection(),
+        ],
+      ],
+    );
   }
 }
 
 class _InactiveTimerCard extends StatefulWidget {
-  const _InactiveTimerCard();
+  final ModeId modeId;
+  const _InactiveTimerCard({required this.modeId});
 
   @override
   State<_InactiveTimerCard> createState() => _InactiveTimerCardState();
@@ -290,9 +304,9 @@ class _InactiveTimerCardState extends State<_InactiveTimerCard> {
         _PillButton(label: t.start, onTap: _start),
         const SizedBox(height: 12),
         _PillButton(
-          label: t.planFocus,
+          label: t.planMode(t.modeName(widget.modeId.value)),
           filled: false,
-          onTap: () => _openScheduleForm(context, ModeId.focus),
+          onTap: () => _openScheduleForm(context, widget.modeId),
         ),
       ],
     );
@@ -470,7 +484,6 @@ class _TimerPresetsState extends State<_TimerPresets> {
 
   @override
   Widget build(BuildContext context) {
-    final pal = _Pal.of(context);
     final current = widget.currentSeconds;
 
     return Column(
@@ -516,25 +529,19 @@ class _PresetChip extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
-  final IconData? icon;
   final bool selected;
-  final bool outlined;
 
   const _PresetChip({
     required this.label,
     required this.onTap,
     this.onLongPress,
-    this.icon,
     this.selected = false,
-    this.outlined = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final pal = _Pal.of(context);
-    final textColor = selected
-        ? pal.onPrimary
-        : (outlined ? pal.primary : pal.text);
+    final textColor = selected ? pal.onPrimary : pal.text;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -548,17 +555,11 @@ class _PresetChip extends StatelessWidget {
               ? pal.primary
               : Theme.of(context).scaffoldBackgroundColor,
           borderRadius: BorderRadius.circular(17),
-          border: Border.all(
-            color: selected || outlined ? pal.primary : pal.line,
-          ),
+          border: Border.all(color: selected ? pal.primary : pal.line),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (icon != null) ...[
-              Icon(icon, size: 15, color: textColor),
-              const SizedBox(width: 4),
-            ],
             Text(
               label,
               style: _sans(context, 12, color: textColor, w: FontWeight.w500),
@@ -569,7 +570,6 @@ class _PresetChip extends StatelessWidget {
     );
   }
 }
-
 
 Future<void> _openScheduleForm(
   BuildContext context,
@@ -596,6 +596,8 @@ Future<void> _openScheduleForm(
     await modeScheduleService.updateSchedule(
       existingSchedule.copyWith(
         name: result.name,
+        dates: result.dates,
+        repeatWeekly: result.repeatWeekly,
         weekdays: result.weekdays,
         startTimeMinutes: result.startTimeMinutes,
         endTimeMinutes: result.endTimeMinutes,
@@ -604,13 +606,20 @@ Future<void> _openScheduleForm(
     return;
   }
 
-  await modeScheduleService.addSchedule(
+  final added = await modeScheduleService.addSchedule(
     modeId: modeId,
     name: result.name,
+    dates: result.dates,
+    repeatWeekly: result.repeatWeekly,
     weekdays: result.weekdays,
     startTimeMinutes: result.startTimeMinutes,
     endTimeMinutes: result.endTimeMinutes,
   );
+  if (!added && context.mounted) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(context.t.scheduleLimitMessage)));
+  }
 }
 
 class _ModeScheduleSection extends StatelessWidget {
@@ -626,19 +635,29 @@ class _ModeScheduleSection extends StatelessWidget {
       listenable: Listenable.merge([modeScheduleService, timeFormatController]),
       builder: (context, _) {
         final schedules = modeScheduleService.schedulesFor(modeId);
-        final schedule = schedules.isEmpty ? null : schedules.first;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(context.t.plannedFocus, style: _serif(context, 24, color: pal.text)),
+            Text(
+              context.t.plannedMode(context.t.modeName(modeId.value)),
+              style: _serif(context, 24, color: pal.text),
+            ),
             const SizedBox(height: 2),
             Text(
               context.t.chooseDaysAndTimeWindow,
               style: _sans(context, 13, color: pal.muted),
             ),
+            const SizedBox(height: 2),
+            Text(
+              context.t.schedulesCount(
+                schedules.length,
+                ModeScheduleService.maxSchedulesPerMode,
+              ),
+              style: _sans(context, 11, color: pal.muted),
+            ),
             const SizedBox(height: 14),
-            if (schedule == null)
+            if (schedules.isEmpty)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
@@ -652,14 +671,18 @@ class _ModeScheduleSection extends StatelessWidget {
                 ),
               )
             else
-              _ScheduleTile(
-                schedule: schedule,
-                onTap: () => _openScheduleForm(
-                  context,
-                  modeId,
-                  existingSchedule: schedule,
+              for (final schedule in schedules)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _ScheduleTile(
+                    schedule: schedule,
+                    onTap: () => _openScheduleForm(
+                      context,
+                      modeId,
+                      existingSchedule: schedule,
+                    ),
+                  ),
                 ),
-              ),
           ],
         );
       },
@@ -677,6 +700,9 @@ class _ScheduleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final pal = _Pal.of(context);
     final use24 = timeFormatController.value;
+    final when = schedule.repeatWeekly
+        ? _formatWeekdays(schedule.weekdays, context.t)
+        : _datesText(context.t, schedule.dates);
 
     return Material(
       color: pal.card,
@@ -700,7 +726,7 @@ class _ScheduleTile extends StatelessWidget {
                       const SizedBox(height: 2),
                     ],
                     Text(
-                      _formatWeekdays(schedule.weekdays, context.t),
+                      when,
                       style: _sans(context, 13, color: pal.muted, w: FontWeight.w600),
                     ),
                     const SizedBox(height: 4),
@@ -719,7 +745,7 @@ class _ScheduleTile extends StatelessWidget {
               ),
               Switch(
                 value: schedule.enabled,
-                activeColor: pal.onPrimary,
+                activeThumbColor: pal.onPrimary,
                 activeTrackColor: pal.primary,
                 onChanged: (enabled) {
                   modeScheduleService.setEnabled(schedule.id, enabled);
@@ -729,6 +755,69 @@ class _ScheduleTile extends StatelessWidget {
                 onPressed: () => modeScheduleService.deleteSchedule(schedule.id),
                 icon: Icon(Icons.delete_outline, color: pal.muted),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Zelfde kaart als in Focus, maar zonder schakelaar en prullenbak.
+/// Wordt op het Today-scherm gebruikt, zodat beide schermen gelijk ogen.
+class ModeScheduleSummaryTile extends StatelessWidget {
+  final ModeSchedule schedule;
+  final VoidCallback onTap;
+
+  const ModeScheduleSummaryTile({
+    super.key,
+    required this.schedule,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = _Pal.of(context);
+    final use24 = timeFormatController.value;
+    final when = schedule.repeatWeekly
+        ? _formatWeekdays(schedule.weekdays, context.t)
+        : _datesText(context.t, schedule.dates);
+
+    return Material(
+      color: pal.card,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 14, 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (schedule.name.isNotEmpty) ...[
+                      Text(
+                        schedule.name,
+                        style: _serif(context, 22, color: pal.text),
+                      ),
+                      const SizedBox(height: 2),
+                    ],
+                    Text(
+                      '${context.t.modeName(schedule.modeId.value)} · $when',
+                      style: _sans(context, 13, color: pal.muted, w: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${formatScheduleTime(_minutesToTimeOfDay(schedule.startTimeMinutes), use24HourTime: use24)} - '
+                      '${formatScheduleTime(_minutesToTimeOfDay(schedule.endTimeMinutes), use24HourTime: use24)}',
+                      style: _serif(context, 20, color: pal.text),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: pal.muted),
             ],
           ),
         ),
@@ -749,15 +838,12 @@ class _ScheduleFormSheet extends StatefulWidget {
 
 class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
   late Set<int> _weekdays;
+  late Set<String> _dates;
+  late bool _repeatWeekly;
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
+  late DateTime _calendarDate;
   late final TextEditingController _nameController;
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
-  }
 
   @override
   void initState() {
@@ -766,6 +852,9 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     final now = DateTime.now();
     final schedule = widget.schedule;
     _nameController = TextEditingController(text: schedule?.name ?? '');
+    _dates = schedule?.dates.toSet() ?? <String>{};
+    _repeatWeekly = schedule?.repeatWeekly ?? true;
+    _calendarDate = now;
 
     if (schedule != null) {
       _weekdays = schedule.weekdays.toSet();
@@ -777,6 +866,12 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     _weekdays = {now.weekday};
     _startTime = TimeOfDay(hour: now.hour, minute: 0);
     _endTime = TimeOfDay(hour: (now.hour + 1) % 24, minute: 0);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
   }
 
   Future<void> _pickStartTime() async {
@@ -799,20 +894,28 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     setState(() => _endTime = selected);
   }
 
+  List<int> get _weekdayOrder {
+    final firstWeekday =
+        weekStartController.value ? DateTime.sunday : DateTime.monday;
+    return List.generate(7, (index) => (firstWeekday + index - 1) % 7 + 1);
+  }
+
   void _toggleWeekday(int weekday) {
     setState(() {
-      if (_weekdays.contains(weekday)) {
-        _weekdays.remove(weekday);
-      } else {
-        _weekdays.add(weekday);
-      }
+      if (!_weekdays.remove(weekday)) _weekdays.add(weekday);
+    });
+  }
+
+  void _toggleDate(DateTime date) {
+    setState(() {
+      final key = _dateKey(date);
+      if (!_dates.remove(key)) _dates.add(key);
     });
   }
 
   void _save() {
     final startTimeMinutes = _timeOfDayToMinutes(_startTime);
     final endTimeMinutes = _timeOfDayToMinutes(_endTime);
-
     final name = _nameController.text.trim();
 
     if (name.isEmpty) {
@@ -822,7 +925,8 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
       return;
     }
 
-    if (_weekdays.isEmpty) {
+    if ((_repeatWeekly && _weekdays.isEmpty) ||
+        (!_repeatWeekly && _dates.isEmpty)) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(context.t.chooseAtLeastOneDay)));
@@ -840,6 +944,8 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
       context,
       _ScheduleFormResult(
         name: name,
+        dates: _dates.toList()..sort(),
+        repeatWeekly: _repeatWeekly,
         weekdays: _weekdays.toList()..sort(),
         startTimeMinutes: startTimeMinutes,
         endTimeMinutes: endTimeMinutes,
@@ -878,13 +984,148 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     );
   }
 
+  Widget _weekdayCircles(_Pal pal) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        for (final weekday in _weekdayOrder)
+          GestureDetector(
+            onTap: () => _toggleWeekday(weekday),
+            child: Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _weekdays.contains(weekday)
+                    ? pal.primary
+                    : Colors.transparent,
+                border: Border.all(
+                  color: _weekdays.contains(weekday) ? pal.primary : pal.line,
+                ),
+              ),
+              child: Text(
+                context.t.weekdayShort[weekday - 1].characters.first
+                    .toUpperCase(),
+                style: _sans(
+                  context,
+                  12,
+                  color: _weekdays.contains(weekday)
+                      ? pal.onPrimary
+                      : pal.text,
+                  w: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _calendar(_Pal pal) {
+    final order = _weekdayOrder;
+    final monthStart = DateTime(_calendarDate.year, _calendarDate.month, 1);
+    final leading = (monthStart.weekday - order.first + 7) % 7;
+    final daysInMonth =
+        DateTime(_calendarDate.year, _calendarDate.month + 1, 0).day;
+
+    final cells = <Widget>[
+      for (var i = 0; i < leading; i++) const SizedBox.shrink(),
+      for (var day = 1; day <= daysInMonth; day++)
+        Builder(builder: (context) {
+          final date = DateTime(_calendarDate.year, _calendarDate.month, day);
+          final selected = _dates.contains(_dateKey(date));
+          final isToday = DateUtils.isSameDay(date, DateTime.now());
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _toggleDate(date),
+            child: Center(
+              child: Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? pal.primary : Colors.transparent,
+                  border: Border.all(
+                    color: selected || isToday
+                        ? pal.primary
+                        : Colors.transparent,
+                  ),
+                ),
+                child: Text(
+                  '$day',
+                  style: _serif(context, 18,
+                      color: selected ? pal.onPrimary : pal.text),
+                ),
+              ),
+            ),
+          );
+        }),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${context.t.months[_calendarDate.month - 1]} ${_calendarDate.year}',
+                style: _serif(context, 20, color: pal.text),
+              ),
+            ),
+            IconButton(
+              onPressed: () => setState(() {
+                _calendarDate =
+                    DateTime(_calendarDate.year, _calendarDate.month - 1, 1);
+              }),
+              icon: Icon(Icons.chevron_left, color: pal.muted),
+            ),
+            IconButton(
+              onPressed: () => setState(() {
+                _calendarDate =
+                    DateTime(_calendarDate.year, _calendarDate.month + 1, 1);
+              }),
+              icon: Icon(Icons.chevron_right, color: pal.muted),
+            ),
+          ],
+        ),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 7,
+          childAspectRatio: 1.15,
+          children: [
+            for (final weekday in order)
+              Center(
+                child: Text(
+                  context.t.weekdayShort[weekday - 1].characters.first
+                      .toUpperCase(),
+                  style: _sans(context, 11, color: pal.muted, w: FontWeight.w700),
+                ),
+              ),
+            ...cells,
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _dates.isEmpty
+              ? context.t.chooseCalendarDates
+              : '${context.t.chosenCalendarDates}: ${_datesText(context.t, _dates.toList())}',
+          style: _sans(context, 12, color: pal.muted),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pal = widget.pal;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return ListenableBuilder(
-      listenable: timeFormatController,
+      listenable: Listenable.merge([timeFormatController, weekStartController]),
       builder: (context, _) => SafeArea(
         top: false,
         child: SingleChildScrollView(
@@ -906,13 +1147,13 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
               const SizedBox(height: 12),
               Text(
                 widget.schedule == null
-                    ? context.t.planFocus
-                    : context.t.editFocus,
+                    ? context.t.planMode(context.t.modeName(ModeId.focus.value))
+                    : context.t.editMode(context.t.modeName(ModeId.focus.value)),
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 14),
               Text(
-                'Name',
+                context.t.scheduleName,
                 style: _sans(context, 13, color: pal.muted, w: FontWeight.w600),
               ),
               const SizedBox(height: 8),
@@ -923,12 +1164,12 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
                 style: _sans(context, 15, color: pal.text),
                 decoration: InputDecoration(
                   counterText: '',
-                  hintText: 'e.g. Morning focus',
+                  hintText: context.t.scheduleNameHint,
                   hintStyle: _sans(context, 15, color: pal.muted),
                   filled: true,
                   fillColor: pal.card,
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(18),
                     borderSide: BorderSide.none,
@@ -937,44 +1178,38 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
               ),
               const SizedBox(height: 14),
               Text(
-                context.t.days,
+                context.t.scheduleDaysTitle,
                 style: _sans(context, 13, color: pal.muted, w: FontWeight.w600),
               ),
               const SizedBox(height: 10),
+              if (_repeatWeekly) _weekdayCircles(pal) else _calendar(pal),
+              const SizedBox(height: 6),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(7, (index) {
-                  final weekday = index + 1;
-                  final selected = _weekdays.contains(weekday);
-
-                  return GestureDetector(
-                    onTap: () => _toggleWeekday(weekday),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: selected ? pal.primary : Colors.transparent,
-                        border: Border.all(
-                          color: selected ? pal.primary : pal.line,
-                        ),
-                      ),
-                      child: Text(
-                        context.t.weekdayShort[weekday - 1].characters.first
-                            .toUpperCase(),
-                        style: _sans(
-                          context,
-                          12,
-                          color: selected ? pal.onPrimary : pal.text,
-                          w: FontWeight.w600,
-                        ),
-                      ),
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(context.t.repeatWeekly,
+                            style: _sans(context, 14, color: pal.text,
+                                w: FontWeight.w600)),
+                        Text(context.t.repeatWeeklyDescription,
+                            style: _sans(context, 11, color: pal.muted)),
+                      ],
                     ),
-                  );
-                }),
+                  ),
+                  Switch(
+                    value: _repeatWeekly,
+                    activeThumbColor: pal.onPrimary,
+                    activeTrackColor: pal.primary,
+                    onChanged: (value) => setState(() {
+                      _repeatWeekly = value;
+                      if (_repeatWeekly) _dates.clear();
+                    }),
+                  ),
+                ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   _timeTile(context.t.from, _startTime, _pickStartTime),
@@ -999,18 +1234,49 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
 
 class _ScheduleFormResult {
   final String name;
+  final List<String> dates;
+  final bool repeatWeekly;
   final List<int> weekdays;
   final int startTimeMinutes;
   final int endTimeMinutes;
 
   const _ScheduleFormResult({
     required this.name,
+    required this.dates,
+    required this.repeatWeekly,
     required this.weekdays,
     required this.startTimeMinutes,
     required this.endTimeMinutes,
   });
 }
 
+String _dateKey(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';
+
+String _datesText(AppStrings t, List<String> dates) {
+  final grouped = <String, List<int>>{};
+  for (final value in dates) {
+    final parts = value.split('-');
+    if (parts.length != 3) continue;
+    final year = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final day = int.tryParse(parts[2]);
+    if (year == null || month == null || day == null) continue;
+    grouped.putIfAbsent('$year-$month', () => []).add(day);
+  }
+
+  final groups = grouped.entries.toList()
+    ..sort((a, b) => a.key.compareTo(b.key));
+  return groups.map((entry) {
+    final parts = entry.key.split('-');
+    final year = int.parse(parts[0]);
+    final month = int.parse(parts[1]);
+    final days = [...entry.value]..sort();
+    return '${days.join(', ')} ${t.monthsShort[month - 1]} $year';
+  }).join(' • ');
+}
 
 Future<TimeOfDay?> _showScheduleTimePicker({
   required BuildContext context,

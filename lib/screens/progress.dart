@@ -2,14 +2,18 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../localization/app_language.dart';
 import '../services/plan_service.dart';
 import '../theme/app_card.dart';
+
+import '../models/moment_session.dart';
+import '../models/plan_day.dart';
+import '../models/plan_data.dart';
+import '../data/repository/plan_repository.dart';
+import '../data/repository/moment_repository.dart';
 
 const _icons = <String, IconData>{
   'Reading': Icons.menu_book_outlined,
@@ -33,27 +37,32 @@ DateTime? _momentPausedAt;
 DateTime _now() => _momentPausedAt ?? DateTime.now();
 
 Future<MomentSession?> _activeMoment() async {
-  final m = await PlanService.activeMoment();
-  final p = await SharedPreferences.getInstance();
-  if (m == null) {
+  try {
+    final m = await PlanService.activeMoment();
+
+    if (m == null) {
+      _momentPausedAt = null;
+      await MomentRepository.savePausedAt(null);
+      return null;
+    }
+
+    _momentPausedAt = await MomentRepository.loadPausedAt();
+    return m;
+  } catch (e, st) {
+    // Bozuk eski kayıt: hatayı yaz, kaydı temizle, uygulama açılsın
+    debugPrint('MOMENT ERROR: $e\n$st');
+    try {
+      await PlanService.clearMoment();
+      await MomentRepository.savePausedAt(null);
+    } catch (_) {}
     _momentPausedAt = null;
-    await p.remove('moment_paused_at');
     return null;
   }
-  final ms = p.getInt('moment_paused_at');
-  _momentPausedAt =
-      ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
-  return m;
 }
 
 Future<void> _setPaused(DateTime? at) async {
   _momentPausedAt = at;
-  final p = await SharedPreferences.getInstance();
-  if (at == null) {
-    await p.remove('moment_paused_at');
-  } else {
-    await p.setInt('moment_paused_at', at.millisecondsSinceEpoch);
-  }
+  await MomentRepository.savePausedAt(at);
 }
 
 Future<void> _clearMoment() async {
@@ -61,23 +70,25 @@ Future<void> _clearMoment() async {
   await _setPaused(null);
 }
 
-
 /// Minuten die vandaag al gedaan zijn maar het doel nog niet bereiken.
-Future<int> _partialMin(int day) async =>
-    (await SharedPreferences.getInstance()).getInt('plan_partial_$day') ?? 0;
+Future<int> _partialMin(int day) {
+  return PlanRepository.loadPartialMinutes(day);
+}
 
 /// Verwerkt een afgeronde of gestopte sessie. De dag telt pas als voltooid
 /// wanneer het doel (bv. 45 min) bereikt is; anders blijven de minuten bewaard
 /// en kan je later doorgaan. Geeft true terug als de dag voltooid is.
-Future<bool> _applySession(int day, int sessionMin, int goal) async {
-  final p = await SharedPreferences.getInstance();
-  final total = (p.getInt('plan_partial_$day') ?? 0) + sessionMin;
+Future<bool> _applySession(PlanDay planDay, int sessionMin, int goal) async {
+  final total =
+      await PlanRepository.loadPartialMinutes(planDay.day) + sessionMin;
+
   if (total >= goal) {
-    await PlanService.complete(day, minutes: goal);
-    await p.remove('plan_partial_$day');
+    await PlanService.completeStep(planDay, minutes: goal);
+    await PlanRepository.savePartialMinutes(planDay.day, 0);
     return true;
   }
-  await p.setInt('plan_partial_$day', total);
+
+  await PlanRepository.savePartialMinutes(planDay.day, total);
   return false;
 }
 
@@ -96,8 +107,15 @@ String _momentTitle(BuildContext context, PlanDay day, int minutes) =>
 /// Figma paleti, açık ve koyu temaya göre.
 class _Pal {
   final Color card, hero, primary, onPrimary, text, muted, line;
-  const _Pal(this.card, this.hero, this.primary, this.onPrimary, this.text,
-      this.muted, this.line);
+  const _Pal(
+    this.card,
+    this.hero,
+    this.primary,
+    this.onPrimary,
+    this.text,
+    this.muted,
+    this.line,
+  );
 
   static _Pal of(BuildContext context) {
     final theme = Theme.of(context);
@@ -130,11 +148,22 @@ class _Pal {
   }
 }
 
-TextStyle _sans(BuildContext c, double size,
-    {Color? color, FontWeight? w, double? h, double? ls}) {
+TextStyle _sans(
+  BuildContext c,
+  double size, {
+  Color? color,
+  FontWeight? w,
+  double? h,
+  double? ls,
+}) {
   final base = Theme.of(c).textTheme.bodyMedium ?? const TextStyle();
   return base.copyWith(
-      fontSize: size, color: color, fontWeight: w, height: h, letterSpacing: ls);
+    fontSize: size,
+    color: color,
+    fontWeight: w,
+    height: h,
+    letterSpacing: ls,
+  );
 }
 
 TextStyle _serif(BuildContext c, double size, {Color? color}) {
@@ -177,7 +206,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
     if (active != null && !_now().isBefore(active.end)) {
       if (!plan.completed.contains(active.day)) {
         await _applySession(
-            active.day, active.minutes, plan.minutesFor(active.day));
+          plan.days[active.day - 1],
+          active.minutes,
+          plan.minutesFor(active.day),
+        );
       }
       await _clearMoment();
       active = null;
@@ -239,7 +271,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
       ),
     );
     if (result != null) {
-      await _applySession(day.day, result, goal);
+      await _applySession(day, result, goal);
       await _clearMoment();
     }
     // Geri gidildiyse sayaç arka planda devam eder, burada yeniden okunur
@@ -252,97 +284,141 @@ class _ProgressScreenState extends State<ProgressScreen> {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(ctx.t.yourDayPlanTitle(plan.total),
-                  style: _serif(ctx, 26, color: pal.text)),
+              Text(
+                ctx.t.yourDayPlanTitle(plan.total),
+                style: _serif(ctx, 26, color: pal.text),
+              ),
               const SizedBox(height: 4),
-              Text(ctx.t.daysCompleted(plan.completed.length, plan.total),
-                  style: _sans(ctx, 12, color: pal.muted)),
+              Text(
+                ctx.t.daysCompleted(plan.completed.length, plan.total),
+                style: _sans(ctx, 12, color: pal.muted),
+              ),
               const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (var d = 1; d <= plan.total; d++)
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        setState(() => _selected = d);
-                      },
-                      child: Container(
-                        width: 44,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: plan.completed.contains(d)
-                              ? pal.primary
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: d == plan.currentDay
-                                  ? pal.primary
-                                  : pal.line,
-                              width: 1.2),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('$d',
-                                style: _serif(ctx, 18,
-                                    color: plan.completed.contains(d)
-                                        ? pal.onPrimary
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: pal.card,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: LayoutBuilder(
+                  builder: (context, box) {
+                    const gap = 8.0;
+                    final tileW = (box.maxWidth - gap * 6) / 7;
+                    return Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      children: [
+                        for (var d = 1; d <= plan.total; d++)
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              setState(() => _selected = d);
+                            },
+                            child: Container(
+                              width: tileW,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: plan.completed.contains(d)
+                                    ? pal.primary
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: d == plan.currentDay
+                                      ? pal.primary
+                                      : pal.line,
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    '$d',
+                                    style: _serif(
+                                      ctx,
+                                      18,
+                                      color: plan.completed.contains(d)
+                                          ? pal.onPrimary
+                                          : (d > plan.currentDay
+                                                ? pal.muted
+                                                : pal.text),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    height: 12,
+                                    child: plan.completed.contains(d)
+                                        ? Icon(
+                                            Icons.check,
+                                            size: 11,
+                                            color: pal.onPrimary,
+                                          )
                                         : (d > plan.currentDay
-                                            ? pal.muted
-                                            : pal.text))),
-                            SizedBox(
-                              height: 12,
-                              child: plan.completed.contains(d)
-                                  ? Icon(Icons.check,
-                                      size: 11, color: pal.onPrimary)
-                                  : (d > plan.currentDay
-                                      ? Icon(Icons.lock_outline,
-                                          size: 10, color: pal.muted)
-                                      : null),
+                                              ? Icon(
+                                                  Icons.lock_outline,
+                                                  size: 10,
+                                                  color: pal.muted,
+                                                )
+                                              : null),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: pal.card,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    _SheetAction(
+                      icon: Icons.science_outlined,
+                      label: ctx.t.demoProgress,
+                      color: pal.muted,
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        await PlanService.debugSeedProgress();
+                        setState(() => _selected = null);
+                        await _load();
+                        _planChanged();
+                      },
                     ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                style: TextButton.styleFrom(foregroundColor: pal.muted),
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  await PlanService.debugSeedProgress();
-                  setState(() => _selected = null);
-                  await _load();
-                  _planChanged();
-                },
-                child: Text(ctx.t.demoProgress),
-              ),
-              TextButton(
-                style: TextButton.styleFrom(foregroundColor: pal.primary),
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  // Plan opnieuw: vandaag is dag 1, alles gewist
-                  await PlanService.reset();
-                  final sp = await SharedPreferences.getInstance();
-                  for (var i = 1; i <= 60; i++) {
-                    await sp.remove('plan_partial_$i');
-                  }
-                  await PlanService.markIntroSeen();
-                  setState(() => _selected = null);
-                  await _load();
-                  _planChanged();
-                },
-                child: const Text('Restart plan: today is day 1'),
+                    Divider(height: 1, color: pal.line),
+                    _SheetAction(
+                      icon: Icons.restart_alt,
+                      label: 'Restart plan: today is day 1',
+                      color: pal.primary,
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        // Plan opnieuw: vandaag is dag 1, alles gewist
+                        await PlanService.reset();
+                        await PlanRepository.clearPartialMinutes();
+                        await PlanService.markIntroSeen();
+                        setState(() => _selected = null);
+                        await _load();
+                        _planChanged();
+                      },
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -402,8 +478,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
               child: MediaQuery(
                 data: MediaQuery.of(context)
                     .copyWith(textScaler: TextScaler.noScaling),
-                child: Text(context.t.progress,
-                    style: Theme.of(context).textTheme.headlineMedium),
+                child: Text(
+                  context.t.progress,
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
               ),
             ),
             const Spacer(),
@@ -414,9 +492,16 @@ class _ProgressScreenState extends State<ProgressScreen> {
           ],
         ),
         const SizedBox(height: 2),
-        Text(context.t.yourDayPlanUpper(plan.total),
-            style: _sans(context, 11,
-                color: pal.primary, w: FontWeight.w700, ls: 1)),
+        Text(
+          context.t.yourDayPlanUpper(plan.total),
+          style: _sans(
+            context,
+            11,
+            color: pal.primary,
+            w: FontWeight.w700,
+            ls: 1,
+          ),
+        ),
         const SizedBox(height: 14),
         _DayChips(
           plan: plan,
@@ -450,17 +535,24 @@ class _ProgressScreenState extends State<ProgressScreen> {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                  color: pal.card, borderRadius: BorderRadius.circular(16)),
+                color: pal.card,
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Row(
                 children: [
-                  Icon(_iconFor(plan.days[d - 1].category),
-                      color: pal.primary),
+                  Icon(_iconFor(plan.days[d - 1].category), color: pal.primary),
                   const SizedBox(width: 14),
-                  Text(context.t.dayActivity(d, plan.days[d - 1].category),
-                      style: _sans(context, 13, color: pal.text)),
+                  Text(
+                    context.t.dayActivity(d, plan.days[d - 1].category),
+                    style: _sans(context, 13, color: pal.text),
+                  ),
                   const Spacer(),
-                  Text(context.t.shortDuration(plan.minutesDone[d] ?? plan.minutesFor(d)),
-                      style: _sans(context, 11, color: pal.muted)),
+                  Text(
+                    context.t.shortDuration(
+                      plan.minutesDone[d] ?? plan.minutesFor(d),
+                    ),
+                    style: _sans(context, 11, color: pal.muted),
+                  ),
                 ],
               ),
             ),
@@ -482,7 +574,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-              color: pal.card, borderRadius: BorderRadius.circular(16)),
+            color: pal.card,
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -490,19 +584,27 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 children: [
                   Icon(_iconFor(lastDay.category), color: pal.primary),
                   const SizedBox(width: 14),
-                  Text(t.todaysStep,
-                      style: _sans(context, 13, color: pal.text)),
+                  Text(
+                    t.todaysStep,
+                    style: _sans(context, 13, color: pal.text),
+                  ),
                   const Spacer(),
-                  Text(context.t.dayNumber(last),
-                      style: _sans(context, 11, color: pal.muted)),
+                  Text(
+                    context.t.dayNumber(last),
+                    style: _sans(context, 11, color: pal.muted),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
-              Text(context.t.planStepText(lastDay.step.title),
-                  style: _sans(context, 13, color: pal.text, w: FontWeight.w600)),
+              Text(
+                context.t.planStepText(lastDay.step.title),
+                style: _sans(context, 13, color: pal.text, w: FontWeight.w600),
+              ),
               const SizedBox(height: 2),
-              Text(context.t.planStepText(lastDay.step.description),
-                  style: _sans(context, 12, color: pal.muted, h: 1.4)),
+              Text(
+                context.t.planStepText(lastDay.step.description),
+                style: _sans(context, 12, color: pal.muted, h: 1.4),
+              ),
             ],
           ),
         ),
@@ -516,7 +618,12 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final done = plan.completed.contains(d);
 
     if (d > plan.currentDay) {
-      return _FutureCard(day: day, minutes: minutes, pal: pal, daysAway: d - plan.currentDay);
+      return _FutureCard(
+        day: day,
+        minutes: minutes,
+        pal: pal,
+        daysAway: d - plan.currentDay,
+      );
     }
     if (d == plan.currentDay) {
       if (done) {
@@ -545,7 +652,12 @@ class _ProgressScreenState extends State<ProgressScreen> {
         },
       );
     }
-    return _PastCard(day: day, minutes: plan.minutesDone[d] ?? minutes, pal: pal, done: done);
+    return _PastCard(
+      day: day,
+      minutes: plan.minutesDone[d] ?? minutes,
+      pal: pal,
+      done: done,
+    );
   }
 }
 
@@ -557,18 +669,21 @@ class _Intro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chips = (plan.interests.isEmpty
-            ? ['Reading', 'Walking', 'Relaxing']
-            : plan.interests)
-        .take(3)
-        .toList();
+    final chips =
+        (plan.interests.isEmpty
+                ? ['Reading', 'Walking', 'Relaxing']
+                : plan.interests)
+            .take(3)
+            .toList();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
       children: [
         const SizedBox(height: 12),
-        Text(context.t.yourDayPlanTitle(plan.total),
-            style: _serif(context, 34, color: pal.text)),
+        Text(
+          context.t.yourDayPlanTitle(plan.total),
+          style: _serif(context, 34, color: pal.text),
+        ),
         const SizedBox(height: 12),
         Text(
           context.t.introDailyStepBody,
@@ -578,7 +693,9 @@ class _Intro extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-              color: pal.card, borderRadius: BorderRadius.circular(24)),
+            color: pal.card,
+            borderRadius: BorderRadius.circular(24),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -589,15 +706,25 @@ class _Intro extends StatelessWidget {
                     height: 64,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                        color: pal.primary, shape: BoxShape.circle),
+                      color: pal.primary,
+                      shape: BoxShape.circle,
+                    ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('${plan.total}',
-                            style: _serif(context, 22, color: pal.onPrimary)),
-                        Text(context.t.daysUpper,
-                            style: _sans(context, 8,
-                                color: pal.onPrimary, w: FontWeight.w700)),
+                        Text(
+                          '${plan.total}',
+                          style: _serif(context, 22, color: pal.onPrimary),
+                        ),
+                        Text(
+                          context.t.daysUpper,
+                          style: _sans(
+                            context,
+                            8,
+                            color: pal.onPrimary,
+                            w: FontWeight.w700,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -606,12 +733,15 @@ class _Intro extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(context.t.oneStepAtATime,
-                            style: _serif(context, 20, color: pal.text)),
+                        Text(
+                          context.t.oneStepAtATime,
+                          style: _serif(context, 20, color: pal.text),
+                        ),
                         const SizedBox(height: 4),
                         Text(
-                            context.t.introThoughtfulMoments,
-                            style: _sans(context, 11, color: pal.muted, h: 1.4)),
+                          context.t.introThoughtfulMoments,
+                          style: _sans(context, 11, color: pal.muted, h: 1.4),
+                        ),
                       ],
                     ),
                   ),
@@ -625,16 +755,26 @@ class _Intro extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         decoration: BoxDecoration(
-                            color: pal.hero,
-                            borderRadius: BorderRadius.circular(14)),
+                          color: pal.hero,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         child: Column(
                           children: [
-                            Icon(_iconFor(chips[i]),
-                                size: 22, color: pal.primary),
+                            Icon(
+                              _iconFor(chips[i]),
+                              size: 22,
+                              color: pal.primary,
+                            ),
                             const SizedBox(height: 6),
-                            Text(context.t.categoryShort(chips[i]),
-                                style: _sans(context, 11,
-                                    color: pal.text, w: FontWeight.w600)),
+                            Text(
+                              context.t.categoryShort(chips[i]),
+                              style: _sans(
+                                context,
+                                11,
+                                color: pal.text,
+                                w: FontWeight.w600,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -660,7 +800,12 @@ class _Intro extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 28),
-        _PrimaryButton(pal: pal, label: context.t.letsGo, icon: Icons.arrow_forward, onTap: onGo),
+        _PrimaryButton(
+          pal: pal,
+          label: context.t.letsGo,
+          icon: Icons.arrow_forward,
+          onTap: onGo,
+        ),
       ],
     );
   }
@@ -671,11 +816,12 @@ class _DayChips extends StatefulWidget {
   final _Pal pal;
   final int selected;
   final ValueChanged<int> onSelect;
-  const _DayChips(
-      {required this.plan,
-      required this.pal,
-      required this.selected,
-      required this.onSelect});
+  const _DayChips({
+    required this.plan,
+    required this.pal,
+    required this.selected,
+    required this.onSelect,
+  });
 
   @override
   State<_DayChips> createState() => _DayChipsState();
@@ -697,7 +843,9 @@ class _DayChipsState extends State<_DayChips> {
   void didUpdateWidget(covariant _DayChips old) {
     super.didUpdateWidget(old);
     if (old.selected != widget.selected) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _centerSelected(true));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _centerSelected(true),
+      );
     }
   }
 
@@ -710,12 +858,16 @@ class _DayChipsState extends State<_DayChips> {
   void _centerSelected(bool animate) {
     if (!mounted || !_controller.hasClients) return;
     final pos = _controller.position;
-    final target = (widget.selected - 1) * (_chipW + _gap) -
+    final target =
+        (widget.selected - 1) * (_chipW + _gap) -
         (pos.viewportDimension / 2 - _chipW / 2);
     final offset = target.clamp(0.0, pos.maxScrollExtent).toDouble();
     if (animate) {
-      _controller.animateTo(offset,
-          duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      _controller.animateTo(
+        offset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     } else {
       _controller.jumpTo(offset);
     }
@@ -732,70 +884,84 @@ class _DayChipsState extends State<_DayChips> {
       child: Listener(
         onPointerSignal: (event) {
           if (event is PointerScrollEvent) {
-            GestureBinding.instance.pointerSignalResolver
-                .register(event, (_) {});
+            GestureBinding.instance.pointerSignalResolver.register(
+              event,
+              (_) {},
+            );
           }
         },
         child: ScrollConfiguration(
-        behavior: ScrollConfiguration.of(context).copyWith(
-          dragDevices: PointerDeviceKind.values.toSet(),
-        ),
-        child: ListView.separated(
-        controller: _controller,
-        scrollDirection: Axis.horizontal,
-        physics: const ClampingScrollPhysics(),
-        itemCount: plan.total,
-        separatorBuilder: (_, __) => const SizedBox(width: _gap),
-        itemBuilder: (context, i) {
-          final d = i + 1;
-          final isSel = d == selected;
-          final isToday = d == plan.currentDay;
-          final done = plan.completed.contains(d);
-          final locked = d > plan.currentDay;
-          // Vandaag is altijd bruin gevuld. Een andere gekozen dag krijgt
-          // alleen een dikkere rand.
-          final filled = isToday;
-          return GestureDetector(
-            onTap: () => onSelect(d),
-            child: Opacity(
-              opacity: locked && !isSel ? 0.65 : 1,
-              child: Container(
-                width: _chipW,
-                decoration: BoxDecoration(
-                  color: filled ? pal.primary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                      color: isSel || isToday ? pal.primary : pal.line,
-                      width: isSel && !isToday ? 2.4 : 1.2),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(isToday ? context.t.todayUpper : context.t.dayUpper,
-                        style: _sans(context, 8,
+          behavior: ScrollConfiguration.of(context)
+              .copyWith(dragDevices: PointerDeviceKind.values.toSet()),
+          child: ListView.separated(
+            controller: _controller,
+            scrollDirection: Axis.horizontal,
+            physics: const ClampingScrollPhysics(),
+            itemCount: plan.total,
+            separatorBuilder: (_, _) => const SizedBox(width: _gap),
+            itemBuilder: (context, i) {
+              final d = i + 1;
+              final isSel = d == selected;
+              final isToday = d == plan.currentDay;
+              final done = plan.completed.contains(d);
+              final locked = d > plan.currentDay;
+              // Vandaag is altijd bruin gevuld. Een andere gekozen dag krijgt
+              // alleen een dikkere rand.
+              final filled = isToday;
+              return GestureDetector(
+                onTap: () => onSelect(d),
+                child: Opacity(
+                  opacity: locked && !isSel ? 0.65 : 1,
+                  child: Container(
+                    width: _chipW,
+                    decoration: BoxDecoration(
+                      color: filled ? pal.primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isSel || isToday ? pal.primary : pal.line,
+                        width: isSel && !isToday ? 2.4 : 1.2,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          isToday ? context.t.todayUpper : context.t.dayUpper,
+                          style: _sans(
+                            context,
+                            8,
                             color: filled ? pal.onPrimary : pal.muted,
                             w: FontWeight.w700,
-                            ls: 0.5)),
-                    const SizedBox(height: 2),
-                    Text('$d',
-                        style: _serif(context, 22,
-                            color: filled ? pal.onPrimary : pal.text)),
-                    SizedBox(
-                      height: 10,
-                      child: done
-                          ? Icon(Icons.check,
-                              size: 10,
-                              color: filled ? pal.onPrimary : pal.primary)
-                          : null,
+                            ls: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$d',
+                          style: _serif(
+                            context,
+                            22,
+                            color: filled ? pal.onPrimary : pal.text,
+                          ),
+                        ),
+                        SizedBox(
+                          height: 10,
+                          child: done
+                              ? Icon(
+                                  Icons.check,
+                                  size: 10,
+                                  color: filled ? pal.onPrimary : pal.primary,
+                                )
+                              : null,
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          );
-        },
-      ),
-      ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -805,17 +971,12 @@ class _Hero extends StatelessWidget {
   final String category;
   final _Pal pal;
   final bool faded;
-  final double height;
-  const _Hero(
-      {required this.category,
-      required this.pal,
-      this.faded = false,
-      this.height = 150});
+  const _Hero({required this.category, required this.pal, this.faded = false});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: height,
+      height: 150,
       width: double.infinity,
       color: pal.hero,
       alignment: Alignment.center,
@@ -847,7 +1008,9 @@ class _Tag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-          color: pal.hero, borderRadius: BorderRadius.circular(20)),
+        color: pal.hero,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -855,7 +1018,16 @@ class _Tag extends StatelessWidget {
             Icon(icon, size: 12, color: pal.muted),
             const SizedBox(width: 4),
           ],
-          Text(text, style: _sans(context, 9, color: pal.muted, w: FontWeight.w700, ls: 0.5)),
+          Text(
+            text,
+            style: _sans(
+              context,
+              9,
+              color: pal.muted,
+              w: FontWeight.w700,
+              ls: 0.5,
+            ),
+          ),
         ],
       ),
     );
@@ -872,10 +1044,14 @@ class _Shell extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-          color: pal.card,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: pal.line)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+        color: pal.card,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: pal.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
     );
   }
 }
@@ -885,11 +1061,12 @@ class _PrimaryButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-  const _PrimaryButton(
-      {required this.pal,
-      required this.label,
-      required this.icon,
-      required this.onTap});
+  const _PrimaryButton({
+    required this.pal,
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -901,12 +1078,22 @@ class _PrimaryButton extends StatelessWidget {
         style: FilledButton.styleFrom(
           backgroundColor: pal.primary,
           foregroundColor: pal.onPrimary,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(label, style: _sans(context, 13, color: pal.onPrimary, w: FontWeight.w600)),
+            Text(
+              label,
+              style: _sans(
+                context,
+                13,
+                color: pal.onPrimary,
+                w: FontWeight.w600,
+              ),
+            ),
             const SizedBox(width: 10),
             Icon(icon, size: 18),
           ],
@@ -925,21 +1112,22 @@ class _TodayCard extends StatelessWidget {
   final int partialMin;
   final VoidCallback onStart;
   final ValueChanged<int> onGoal;
-  const _TodayCard(
-      {required this.pal,
-      required this.day,
-      required this.minutes,
-      required this.timeOfDay,
-      required this.onStart,
-      required this.onGoal,
-      this.partialMin = 0,
-      this.active});
+  const _TodayCard({
+    required this.pal,
+    required this.day,
+    required this.minutes,
+    required this.timeOfDay,
+    required this.onStart,
+    required this.onGoal,
+    this.partialMin = 0,
+    this.active,
+  });
 
   Future<void> _pickCustom(BuildContext context) async {
     final m = await showModalBottomSheet<int>(
       context: context,
       showDragHandle: true,
-      backgroundColor: pal.hero,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       builder: (ctx) => _GoalSheet(pal: pal, minutes: minutes),
     );
     if (m != null) onGoal(m);
@@ -960,61 +1148,92 @@ class _TodayCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(context.t.dayTodayUpper(day.day),
-                          style: _sans(context, 10,
-                              color: pal.primary, w: FontWeight.w700, ls: 1)),
+                      Text(
+                        context.t.dayTodayUpper(day.day),
+                        style: _sans(
+                          context,
+                          10,
+                          color: pal.primary,
+                          w: FontWeight.w700,
+                          ls: 1,
+                        ),
+                      ),
                       const Spacer(),
                       Icon(Icons.timer_outlined, size: 14, color: pal.muted),
                       const SizedBox(width: 4),
-                      Text(context.t.shortDuration(minutes),
-                          style: _sans(context, 11, color: pal.muted)),
+                      Text(
+                        context.t.shortDuration(minutes),
+                        style: _sans(context, 11, color: pal.muted),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Text(_momentTitle(context, day, minutes),
-                      style: _serif(context, 26, color: pal.text)),
+                  Text(
+                    _momentTitle(context, day, minutes),
+                    style: _serif(context, 26, color: pal.text),
+                  ),
                   const SizedBox(height: 8),
-                  Text(context.t.planStepText(day.step.description),
-                      style: _sans(context, 12, color: pal.muted, h: 1.5)),
+                  Text(
+                    context.t.planStepText(day.step.description),
+                    style: _sans(context, 12, color: pal.muted, h: 1.5),
+                  ),
                   const SizedBox(height: 18),
                   if (active != null) ...[
                     Row(
                       children: [
-                        Icon(Icons.hourglass_bottom,
-                            size: 16, color: pal.primary),
+                        Icon(
+                          Icons.hourglass_bottom,
+                          size: 16,
+                          color: pal.primary,
+                        ),
                         const SizedBox(width: 8),
                         Text(
-                            context.t.inProgressLeft(_mmss(active!.end.difference(_now()))),
-                            style: _sans(context, 12,
-                                color: pal.primary, w: FontWeight.w600)),
+                          context.t.inProgressLeft(
+                            _mmss(active!.end.difference(_now())),
+                          ),
+                          style: _sans(
+                            context,
+                            12,
+                            color: pal.primary,
+                            w: FontWeight.w600,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     _PrimaryButton(
-                        pal: pal,
-                        label: context.t.openMoment,
-                        icon: Icons.timer_outlined,
-                        onTap: onStart),
+                      pal: pal,
+                      label: context.t.openMoment,
+                      icon: Icons.timer_outlined,
+                      onTap: onStart,
+                    ),
                   ] else ...[
                     if (partialMin > 0) ...[
                       Row(
                         children: [
                           Icon(Icons.timelapse, size: 16, color: pal.primary),
                           const SizedBox(width: 8),
-                          Text('$partialMin of $minutes min done so far',
-                              style: _sans(context, 12,
-                                  color: pal.primary, w: FontWeight.w600)),
+                          Text(
+                            '$partialMin of $minutes min done so far',
+                            style: _sans(
+                              context,
+                              12,
+                              color: pal.primary,
+                              w: FontWeight.w600,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
                     ],
                     _PrimaryButton(
-                        pal: pal,
-                        label: partialMin > 0
-                            ? "Continue today's session"
-                            : context.t.startTodaysMoment,
-                        icon: Icons.play_arrow_rounded,
-                        onTap: onStart),
+                      pal: pal,
+                      label: partialMin > 0
+                          ? "Continue today's session"
+                          : context.t.startTodaysMoment,
+                      icon: Icons.play_arrow_rounded,
+                      onTap: onStart,
+                    ),
                   ],
                 ],
               ),
@@ -1022,89 +1241,149 @@ class _TodayCard extends StatelessWidget {
           ],
         ),
         if (active == null) ...[
-        const SizedBox(height: 14),
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-              color: pal.card, borderRadius: BorderRadius.circular(24)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(context.t.adjustTodaysGoal,
-                  style: _sans(context, 13, color: pal.text, w: FontWeight.w600)),
-              const SizedBox(height: 2),
-              Text(context.t.chooseGoalToday,
-                  style: _sans(context, 11, color: pal.muted)),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  for (final m in const [15, 30, 45]) ...[
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => onGoal(m),
-                        child: Container(
-                          height: 44,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: m == minutes ? pal.primary : pal.hero,
-                            borderRadius: BorderRadius.circular(12),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: pal.card,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.t.adjustTodaysGoal,
+                  style: _sans(
+                    context,
+                    13,
+                    color: pal.text,
+                    w: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  context.t.chooseGoalToday,
+                  style: _sans(context, 11, color: pal.muted),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    for (final m in const [15, 30, 45]) ...[
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => onGoal(m),
+                          child: Container(
+                            height: 44,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: m == minutes ? pal.primary : pal.hero,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              context.t.shortDuration(m),
+                              style: _sans(
+                                context,
+                                12,
+                                color: m == minutes ? pal.onPrimary : pal.text,
+                                w: FontWeight.w600,
+                              ),
+                            ),
                           ),
-                          child: Text(context.t.shortDuration(m),
-                              style: _sans(context, 12,
-                                  color: m == minutes ? pal.onPrimary : pal.text,
-                                  w: FontWeight.w600)),
                         ),
                       ),
-                    ),
-                    if (m != 45) const SizedBox(width: 8),
+                      if (m != 45) const SizedBox(width: 8),
+                    ],
                   ],
-                ],
-              ),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: () => _pickCustom(context),
-                child: Container(
-                  height: 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: const [15, 30, 45].contains(minutes)
-                        ? pal.hero
-                        : pal.primary,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.alarm,
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () => _pickCustom(context),
+                  child: Container(
+                    height: 44,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const [15, 30, 45].contains(minutes)
+                          ? pal.hero
+                          : pal.primary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.alarm,
                           size: 16,
                           color: const [15, 30, 45].contains(minutes)
                               ? pal.text
-                              : pal.onPrimary),
-                      const SizedBox(width: 8),
-                      Text(
+                              : pal.onPrimary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
                           const [15, 30, 45].contains(minutes)
                               ? context.t.setOwnTime
-                              : context.t.yourCustomTime(context.t.shortDuration(minutes)),
-                          style: _sans(context, 12,
-                              color: const [15, 30, 45].contains(minutes)
-                                  ? pal.text
-                                  : pal.onPrimary,
-                              w: FontWeight.w600)),
-                    ],
+                              : context.t.yourCustomTime(
+                                  context.t.shortDuration(minutes),
+                                ),
+                          style: _sans(
+                            context,
+                            12,
+                            color: const [15, 30, 45].contains(minutes)
+                                ? pal.text
+                                : pal.onPrimary,
+                            w: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         ] else ...[
           const SizedBox(height: 12),
           Text(
-              'Wrong time? Open the moment and cancel it. The minutes you have done are kept.',
-              textAlign: TextAlign.center,
-              style: _sans(context, 11, color: pal.muted, h: 1.4)),
+            'Wrong time? Open the moment and cancel it. The minutes you have done are kept.',
+            textAlign: TextAlign.center,
+            style: _sans(context, 11, color: pal.muted, h: 1.4),
+          ),
         ],
       ],
+    );
+  }
+}
+
+class _SheetAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _SheetAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: _sans(context, 13, color: color, w: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1121,114 +1400,83 @@ class _GoalSheet extends StatefulWidget {
 }
 
 class _GoalSheetState extends State<_GoalSheet> {
-  late int _h; // saat 0-3
-  late int _m; // dakika sırası: 0 = 00 ... 11 = 55
-  late final FixedExtentScrollController _hc;
-  late final FixedExtentScrollController _mc;
-
-  int get _total => _h * 60 + _m * 5;
-
-  void _setFrom(int total) {
-    final c = total.clamp(_GoalSheet.minMin, _GoalSheet.maxMin);
-    _h = c ~/ 60;
-    _m = (c % 60) ~/ 5;
-  }
+  late int _total;
 
   @override
   void initState() {
     super.initState();
-    _setFrom(widget.minutes);
-    _hc = FixedExtentScrollController(initialItem: _h);
-    _mc = FixedExtentScrollController(initialItem: _m);
+    _total = widget.minutes.clamp(_GoalSheet.minMin, _GoalSheet.maxMin).toInt();
   }
 
-  @override
-  void dispose() {
-    _hc.dispose();
-    _mc.dispose();
-    super.dispose();
-  }
-
-  // Tekerlekler durunca sınır dışıysa en yakın geçerli süreye getir.
-  void _settle() {
-    final c = _total.clamp(_GoalSheet.minMin, _GoalSheet.maxMin);
-    if (c != _total) {
-      _setFrom(c);
-      _hc.animateToItem(_h,
-          duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
-      _mc.animateToItem(_m,
-          duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
-    }
-    setState(() {});
-  }
-
-  Widget _wheel(FixedExtentScrollController c, int count,
-      String Function(int) text, ValueChanged<int> onChange) {
-    final pal = widget.pal;
-    return Expanded(
-      child: CupertinoPicker(
-        scrollController: c,
-        itemExtent: 38,
-        backgroundColor: Colors.transparent,
-        selectionOverlay: Container(
-          decoration: BoxDecoration(
-            color: pal.primary.withAlpha(30),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: pal.line),
-          ),
-        ),
-        onSelectedItemChanged: onChange,
-        children: [
-          for (var i = 0; i < count; i++)
-            Center(
-                child: Text(text(i),
-                    style: _serif(context, 22, color: pal.text))),
-        ],
-      ),
-    );
+  void _change(int by) {
+    setState(() {
+      _total = (_total + by).clamp(_GoalSheet.minMin, _GoalSheet.maxMin).toInt();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final pal = widget.pal;
+    final t = context.t;
+
     return SafeArea(
+      top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(context.t.setOwnTime, style: _serif(context, 24, color: pal.text)),
+            Text(t.setOwnTime, style: _serif(context, 26, color: pal.text)),
             const SizedBox(height: 4),
-            Text(context.t.customTimeRange,
-                style: _sans(context, 11, color: pal.muted)),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 150,
-              child: NotificationListener<ScrollEndNotification>(
-                onNotification: (_) {
-                  _settle();
-                  return false;
-                },
-                child: Row(
-                  children: [
-                    _wheel(_hc, 4, (i) => context.t.shortHours(i), (i) => _h = i),
-                    _wheel(
-                        _mc,
-                        12,
-                        (i) => '${(i * 5).toString().padLeft(2, '0')} min',
-                        (i) => _m = i),
-                  ],
-                ),
+            Text(
+              t.customTimeRange,
+              style: _sans(context, 12, color: pal.muted),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+              decoration: BoxDecoration(
+                color: pal.hero,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _GoalStepper(
+                    text: (_total ~/ 60).toString().padLeft(2, '0'),
+                    label: t.hours.toLowerCase(),
+                    onStep: (by) => _change(by * 60),
+                    canUp: _total + 60 <= _GoalSheet.maxMin,
+                    canDown: _total - 60 >= _GoalSheet.minMin,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 52),
+                    child: Text(
+                      ':',
+                      style: _serif(context, 34, color: pal.muted),
+                    ),
+                  ),
+                  _GoalStepper(
+                    text: (_total % 60).toString().padLeft(2, '0'),
+                    label: t.minutesLabel.toLowerCase(),
+                    onStep: (by) => _change(by * 5),
+                    canUp: _total + 5 <= _GoalSheet.maxMin,
+                    canDown: _total - 5 >= _GoalSheet.minMin,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: TextButton(
                     style: TextButton.styleFrom(foregroundColor: pal.muted),
                     onPressed: () => Navigator.pop(context),
-                    child: Text(context.t.cancel),
+                    child: Text(t.cancel),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1236,11 +1484,9 @@ class _GoalSheetState extends State<_GoalSheet> {
                   flex: 2,
                   child: _PrimaryButton(
                     pal: pal,
-                    label: context.t.saveDuration(context.t.shortDuration(_total.clamp(_GoalSheet.minMin, _GoalSheet.maxMin))),
+                    label: t.saveDuration(t.shortDuration(_total)),
                     icon: Icons.check,
-                    onTap: () => Navigator.pop(
-                        context,
-                        _total.clamp(_GoalSheet.minMin, _GoalSheet.maxMin)),
+                    onTap: () => Navigator.pop(context, _total),
                   ),
                 ),
               ],
@@ -1252,18 +1498,98 @@ class _GoalSheetState extends State<_GoalSheet> {
   }
 }
 
+/// Getal met pijltjes erboven en eronder, zoals op het Focus-scherm.
+/// Tikken op een pijltje of omhoog/omlaag slepen op het getal verandert de waarde.
+class _GoalStepper extends StatefulWidget {
+  final String text, label;
+  final ValueChanged<int> onStep;
+  final bool canUp, canDown;
+  const _GoalStepper({
+    required this.text,
+    required this.label,
+    required this.onStep,
+    required this.canUp,
+    required this.canDown,
+  });
+
+  @override
+  State<_GoalStepper> createState() => _GoalStepperState();
+}
+
+class _GoalStepperState extends State<_GoalStepper> {
+  static const double _stepPx = 22;
+  double _drag = 0;
+
+  void _onDrag(DragUpdateDetails d) {
+    _drag += d.delta.dy;
+    while (_drag <= -_stepPx) {
+      _drag += _stepPx;
+      widget.onStep(1);
+    }
+    while (_drag >= _stepPx) {
+      _drag -= _stepPx;
+      widget.onStep(-1);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = _Pal.of(context);
+
+    Widget chevron(IconData icon, int by, bool enabled) => InkResponse(
+      onTap: enabled ? () => widget.onStep(by) : null,
+      radius: 22,
+      child: SizedBox(
+        width: 56,
+        height: 36,
+        child: Icon(
+          icon,
+          size: 24,
+          color: enabled ? pal.muted : pal.muted.withAlpha(70),
+        ),
+      ),
+    );
+
+    return SizedBox(
+      width: 92,
+      child: Column(
+        children: [
+          chevron(Icons.keyboard_arrow_up, 1, widget.canUp),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onVerticalDragUpdate: _onDrag,
+            onVerticalDragEnd: (_) => _drag = 0,
+            child: SizedBox(
+              height: 74,
+              child: Center(
+                child: Text(
+                  widget.text,
+                  style: _serif(context, 46, color: pal.text).copyWith(height: 1.4),
+                ),
+              ),
+            ),
+          ),
+          Text(widget.label, style: _sans(context, 12, color: pal.muted)),
+          chevron(Icons.keyboard_arrow_down, -1, widget.canDown),
+        ],
+      ),
+    );
+  }
+}
+
 class _CompleteCard extends StatelessWidget {
   final _Pal pal;
   final int day, minutes, nextNumber;
   final PlanDay? next;
   final VoidCallback onNext;
-  const _CompleteCard(
-      {required this.pal,
-      required this.day,
-      required this.minutes,
-      required this.next,
-      required this.nextNumber,
-      required this.onNext});
+  const _CompleteCard({
+    required this.pal,
+    required this.day,
+    required this.minutes,
+    required this.next,
+    required this.nextNumber,
+    required this.onNext,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1274,31 +1600,47 @@ class _CompleteCard extends StatelessWidget {
           width: 150,
           height: 150,
           alignment: Alignment.center,
-          decoration:
-              BoxDecoration(color: pal.card, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: pal.card, shape: BoxShape.circle),
           child: Container(
             width: 96,
             height: 96,
-            decoration:
-                BoxDecoration(color: pal.primary, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: pal.primary,
+              shape: BoxShape.circle,
+            ),
             child: Icon(Icons.check, size: 40, color: pal.onPrimary),
           ),
         ),
         const SizedBox(height: 20),
-        Text(context.t.momentMadeUpper,
-            style: _sans(context, 10, color: pal.primary, w: FontWeight.w700, ls: 1)),
+        Text(
+          context.t.momentMadeUpper,
+          style: _sans(
+            context,
+            10,
+            color: pal.primary,
+            w: FontWeight.w700,
+            ls: 1,
+          ),
+        ),
         const SizedBox(height: 8),
-        Text(context.t.dayComplete(day), style: _serif(context, 34, color: pal.text)),
+        Text(
+          context.t.dayComplete(day),
+          style: _serif(context, 34, color: pal.text),
+        ),
         const SizedBox(height: 8),
-        Text(context.t.phoneFreeToday(minutes),
-            textAlign: TextAlign.center,
-            style: _sans(context, 12, color: pal.muted)),
+        Text(
+          context.t.phoneFreeToday(minutes),
+          textAlign: TextAlign.center,
+          style: _sans(context, 12, color: pal.muted),
+        ),
         const SizedBox(height: 22),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-              color: pal.card, borderRadius: BorderRadius.circular(20)),
+            color: pal.card,
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Column(
             children: [
               Icon(Icons.nights_stay_outlined, size: 20, color: pal.primary),
@@ -1311,9 +1653,11 @@ class _CompleteCard extends StatelessWidget {
                 style: _serif(context, 20, color: pal.text),
               ),
               const SizedBox(height: 6),
-              Text(context.t.nothingElseToday,
-                  textAlign: TextAlign.center,
-                  style: _sans(context, 11, color: pal.muted)),
+              Text(
+                context.t.nothingElseToday,
+                textAlign: TextAlign.center,
+                style: _sans(context, 11, color: pal.muted),
+              ),
             ],
           ),
         ),
@@ -1324,28 +1668,44 @@ class _CompleteCard extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                  color: pal.card, borderRadius: BorderRadius.circular(16)),
+                color: pal.card,
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Row(
                 children: [
                   Container(
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                        color: pal.hero, borderRadius: BorderRadius.circular(10)),
-                    child: Icon(_iconFor(next!.category),
-                        size: 20, color: pal.primary),
+                      color: pal.hero,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      _iconFor(next!.category),
+                      size: 20,
+                      color: pal.primary,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(context.t.upNextDay(nextNumber),
-                            style: _sans(context, 9,
-                                color: pal.muted, w: FontWeight.w700, ls: 0.5)),
+                        Text(
+                          context.t.upNextDay(nextNumber),
+                          style: _sans(
+                            context,
+                            9,
+                            color: pal.muted,
+                            w: FontWeight.w700,
+                            ls: 0.5,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text(context.t.planStepText(next!.step.title),
-                            style: _serif(context, 17, color: pal.text)),
+                        Text(
+                          context.t.planStepText(next!.step.title),
+                          style: _serif(context, 17, color: pal.text),
+                        ),
                       ],
                     ),
                   ),
@@ -1364,11 +1724,12 @@ class _FutureCard extends StatelessWidget {
   final PlanDay day;
   final int minutes, daysAway;
   final _Pal pal;
-  const _FutureCard(
-      {required this.day,
-      required this.minutes,
-      required this.daysAway,
-      required this.pal});
+  const _FutureCard({
+    required this.day,
+    required this.minutes,
+    required this.daysAway,
+    required this.pal,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1381,14 +1742,22 @@ class _FutureCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
               child: Row(
                 children: [
-                  Text(context.t.dayUpperNumber(day.day),
-                      style: _sans(context, 10,
-                          color: pal.primary, w: FontWeight.w700, ls: 1)),
+                  Text(
+                    context.t.dayUpperNumber(day.day),
+                    style: _sans(
+                      context,
+                      10,
+                      color: pal.primary,
+                      w: FontWeight.w700,
+                      ls: 1,
+                    ),
+                  ),
                   const Spacer(),
                   _Tag(
-                      pal: pal,
-                      icon: Icons.lock_outline,
-                      text: context.t.availableInDays(daysAway)),
+                    pal: pal,
+                    icon: Icons.lock_outline,
+                    text: context.t.availableInDays(daysAway),
+                  ),
                 ],
               ),
             ),
@@ -1398,11 +1767,15 @@ class _FutureCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(context.t.planStepText(day.step.title),
-                      style: _serif(context, 24, color: pal.text)),
+                  Text(
+                    context.t.planStepText(day.step.title),
+                    style: _serif(context, 24, color: pal.text),
+                  ),
                   const SizedBox(height: 6),
-                  Text(context.t.planStepText(day.step.description),
-                      style: _sans(context, 12, color: pal.muted, h: 1.5)),
+                  Text(
+                    context.t.planStepText(day.step.description),
+                    style: _sans(context, 12, color: pal.muted, h: 1.5),
+                  ),
                 ],
               ),
             ),
@@ -1412,7 +1785,9 @@ class _FutureCard extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-              color: pal.card, borderRadius: BorderRadius.circular(16)),
+            color: pal.card,
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Row(
             children: [
               Icon(Icons.schedule, size: 18, color: pal.muted),
@@ -1436,11 +1811,12 @@ class _PastCard extends StatelessWidget {
   final int minutes;
   final _Pal pal;
   final bool done;
-  const _PastCard(
-      {required this.day,
-      required this.minutes,
-      required this.pal,
-      required this.done});
+  const _PastCard({
+    required this.day,
+    required this.minutes,
+    required this.pal,
+    required this.done,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1451,14 +1827,23 @@ class _PastCard extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
           child: Row(
             children: [
-              Text(context.t.dayUpperNumber(day.day),
-                  style: _sans(context, 10,
-                      color: pal.primary, w: FontWeight.w700, ls: 1)),
+              Text(
+                context.t.dayUpperNumber(day.day),
+                style: _sans(
+                  context,
+                  10,
+                  color: pal.primary,
+                  w: FontWeight.w700,
+                  ls: 1,
+                ),
+              ),
               const Spacer(),
               _Tag(
                 pal: pal,
                 icon: done ? Icons.check : null,
-                text: done ? context.t.completedGentlyUpper : context.t.notCompletedUpper,
+                text: done
+                    ? context.t.completedGentlyUpper
+                    : context.t.notCompletedUpper,
               ),
             ],
           ),
@@ -1469,8 +1854,10 @@ class _PastCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_momentTitle(context, day, minutes),
-                  style: _serif(context, 24, color: pal.text)),
+              Text(
+                _momentTitle(context, day, minutes),
+                style: _serif(context, 24, color: pal.text),
+              ),
               const SizedBox(height: 6),
               Text(
                 done
@@ -1490,13 +1877,14 @@ class _MomentScreen extends StatefulWidget {
   final int dayNumber, minutes;
   final String title, description, timeOfDay;
   final MomentSession? resume;
-  const _MomentScreen(
-      {required this.dayNumber,
-      required this.minutes,
-      required this.title,
-      required this.description,
-      required this.timeOfDay,
-      this.resume});
+  const _MomentScreen({
+    required this.dayNumber,
+    required this.minutes,
+    required this.title,
+    required this.description,
+    required this.timeOfDay,
+    this.resume,
+  });
 
   @override
   State<_MomentScreen> createState() => _MomentScreenState();
@@ -1519,14 +1907,15 @@ class _MomentScreenState extends State<_MomentScreen> {
     return d.isNegative ? Duration.zero : d;
   }
 
-  Future<void> _shiftStart(Duration by) async {
-    final s = _session;
-    if (s == null) return;
-    final moved = s.start.add(by);
-    final p = await SharedPreferences.getInstance();
-    await p.setInt('moment_start', moved.millisecondsSinceEpoch);
-    _session = MomentSession(s.day, s.minutes, moved);
-  }
+  /// Bij hervatten schuiven we de starttijd op met de pauzeduur.
+Future<void> _shiftStart(Duration by) async {
+  final s = _session;
+  if (s == null) return;
+
+  final moved = s.start.add(by);
+  await MomentRepository.updateMomentStart(moved);
+  _session = MomentSession(s.day, s.minutes, moved);
+}
 
   Future<void> _togglePause() async {
     if (_session == null) return;
@@ -1578,47 +1967,23 @@ class _MomentScreenState extends State<_MomentScreen> {
     Navigator.of(context).pop(minutes);
   }
 
-  Future<void> _finishEarly() async {
-    final s = _session;
-    if (s == null) return;
-    final elapsed = _clock.difference(s.start).inSeconds;
-    final doneMin = (elapsed / 60).ceil().clamp(1, widget.minutes).toInt();
-    if (doneMin < widget.minutes) {
-      final stop = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Finish early?'),
-          content: Text(
-              'You have done $doneMin of ${widget.minutes} minutes. Today only counts as finished when you reach your goal, but you can continue later. Pause if you just need a break.'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Keep going')),
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Stop for now')),
-          ],
-        ),
-      );
-      if (stop != true) return;
-    }
-    _complete(doneMin);
-  }
-
   Future<void> _cancel() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Cancel this moment?'),
         content: const Text(
-            'The minutes you have done so far will still be counted. You can continue later.'),
+          'The minutes you have done so far will still be counted. You can continue later.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Keep going')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep going'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Cancel moment')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cancel moment'),
+          ),
         ],
       ),
     );
@@ -1627,8 +1992,8 @@ class _MomentScreenState extends State<_MomentScreen> {
     final doneMin = st == null
         ? 0
         : (_clock.difference(st.start).inSeconds ~/ 60)
-            .clamp(0, widget.minutes)
-            .toInt();
+              .clamp(0, widget.minutes)
+              .toInt();
     if (doneMin > 0) {
       _complete(doneMin);
       return;
@@ -1648,8 +2013,9 @@ class _MomentScreenState extends State<_MomentScreen> {
   Widget build(BuildContext context) {
     final pal = _Pal.of(context);
     final running = _session != null;
-    final progress =
-        running ? 1 - _left.inMilliseconds / _total.inMilliseconds : 0.0;
+    final progress = running
+        ? 1 - _left.inMilliseconds / _total.inMilliseconds
+        : 0.0;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -1668,28 +2034,43 @@ class _MomentScreenState extends State<_MomentScreen> {
                     child: Row(
                       children: [
                         Icon(Icons.chevron_left, color: pal.muted),
-                        Text(context.t.back, style: _sans(context, 12, color: pal.muted)),
+                        Text(
+                          context.t.back,
+                          style: _sans(context, 12, color: pal.muted),
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      Text(context.t.todayActivityUpper(widget.dayNumber),
-                          style: _sans(context, 10,
-                              color: pal.primary, w: FontWeight.w700, ls: 1)),
+                      Text(
+                        context.t.todayActivityUpper(widget.dayNumber),
+                        style: _sans(
+                          context,
+                          10,
+                          color: pal.primary,
+                          w: FontWeight.w700,
+                          ls: 1,
+                        ),
+                      ),
                       const Spacer(),
                       _Tag(
-                          pal: pal,
-                          icon: Icons.wb_twilight,
-                          text: context.t.localizedTimeOfDay(widget.timeOfDay).toUpperCase()),
+                        pal: pal,
+                        icon: Icons.wb_twilight,
+                        text: context.t
+                            .localizedTimeOfDay(widget.timeOfDay)
+                            .toUpperCase(),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
                     decoration: BoxDecoration(
-                        color: pal.card, borderRadius: BorderRadius.circular(28)),
+                      color: pal.card,
+                      borderRadius: BorderRadius.circular(28),
+                    ),
                     child: Column(
                       children: [
                         SizedBox(
@@ -1697,23 +2078,30 @@ class _MomentScreenState extends State<_MomentScreen> {
                           height: 230,
                           child: CustomPaint(
                             painter: _RingPainter(
-                                progress: progress.clamp(0.0, 1.0),
-                                color: pal.primary,
-                                track: pal.line),
+                              progress: progress.clamp(0.0, 1.0),
+                              color: pal.primary,
+                              track: pal.line,
+                            ),
                             child: Center(
-                              child: Text(_mmss(_left),
-                                  style: _serif(context, 44, color: pal.text)),
+                              child: Text(
+                                _mmss(_left),
+                                style: _serif(context, 44, color: pal.text),
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(height: 22),
-                        Text(widget.title,
-                            textAlign: TextAlign.center,
-                            style: _serif(context, 26, color: pal.text)),
+                        Text(
+                          widget.title,
+                          textAlign: TextAlign.center,
+                          style: _serif(context, 26, color: pal.text),
+                        ),
                         const SizedBox(height: 8),
-                        Text(widget.description,
-                            textAlign: TextAlign.center,
-                            style: _sans(context, 12, color: pal.muted, h: 1.5)),
+                        Text(
+                          widget.description,
+                          textAlign: TextAlign.center,
+                          style: _sans(context, 12, color: pal.muted, h: 1.5),
+                        ),
                       ],
                     ),
                   ),
@@ -1721,18 +2109,23 @@ class _MomentScreenState extends State<_MomentScreen> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                        color: pal.card, borderRadius: BorderRadius.circular(16)),
+                      color: pal.card,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Row(
                       children: [
-                        Icon(Icons.inventory_2_outlined,
-                            size: 18, color: pal.muted),
+                        Icon(
+                          Icons.inventory_2_outlined,
+                          size: 18,
+                          color: pal.muted,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             running
                                 ? (_paused
-                                    ? 'Paused. Your time is waiting. Press Resume when you are ready.'
-                                    : context.t.phoneInBoxRunning(_boxName))
+                                      ? 'Paused. Your time is waiting. Press Resume when you are ready.'
+                                      : context.t.phoneInBoxRunning(_boxName))
                                 : context.t.phoneInBoxBeforeStart(_boxName),
                             style: _sans(context, 11, color: pal.muted, h: 1.4),
                           ),
@@ -1743,10 +2136,11 @@ class _MomentScreenState extends State<_MomentScreen> {
                   const SizedBox(height: 18),
                   if (!running) ...[
                     _PrimaryButton(
-                        pal: pal,
-                        label: context.t.startTheMoment,
-                        icon: Icons.play_arrow_rounded,
-                        onTap: _begin),
+                      pal: pal,
+                      label: context.t.startTheMoment,
+                      icon: Icons.play_arrow_rounded,
+                      onTap: _begin,
+                    ),
                     const SizedBox(height: 10),
                     Text(
                       context.t.boxAutomaticStart(_boxName),
@@ -1761,11 +2155,13 @@ class _MomentScreenState extends State<_MomentScreen> {
                         minimumSize: const Size.fromHeight(56),
                         side: BorderSide(color: pal.primary),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16)),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
                       icon: Icon(
-                          _paused ? Icons.play_arrow_rounded : Icons.pause,
-                          size: 20),
+                        _paused ? Icons.play_arrow_rounded : Icons.pause,
+                        size: 20,
+                      ),
                       label: Text(_paused ? 'Resume' : 'Pause'),
                     ),
                     const SizedBox(height: 6),
@@ -1790,8 +2186,11 @@ class _MomentScreenState extends State<_MomentScreen> {
 class _RingPainter extends CustomPainter {
   final double progress;
   final Color color, track;
-  const _RingPainter(
-      {required this.progress, required this.color, required this.track});
+  const _RingPainter({
+    required this.progress,
+    required this.color,
+    required this.track,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1807,8 +2206,13 @@ class _RingPainter extends CustomPainter {
       ..strokeWidth = 8
       ..strokeCap = StrokeCap.round
       ..color = color;
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius),
-        -math.pi / 2, 2 * math.pi * progress, false, arcPaint);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      2 * math.pi * progress,
+      false,
+      arcPaint,
+    );
   }
 
   @override
@@ -1853,7 +2257,10 @@ class _TodayActivityState extends State<TodayActivity> {
     if (active != null && !_now().isBefore(active.end)) {
       if (!plan.completed.contains(active.day)) {
         await _applySession(
-            active.day, active.minutes, plan.minutesFor(active.day));
+          plan.days[active.day - 1],
+          active.minutes,
+          plan.minutesFor(active.day),
+        );
       }
       await _clearMoment();
       active = null;
@@ -1900,18 +2307,23 @@ class _TodayActivityState extends State<TodayActivity> {
       ),
     );
     if (result != null) {
-      await _applySession(day.day, result, goal);
+      await _applySession(day, result, goal);
       await _clearMoment();
     }
     await _load();
     _planChanged();
   }
 
-  Future<void> _changeTime(PlanData plan, int day, int minutes, _Pal pal) async {
+  Future<void> _changeTime(
+    PlanData plan,
+    int day,
+    int minutes,
+    _Pal pal,
+  ) async {
     final m = await showModalBottomSheet<int>(
       context: context,
       showDragHandle: true,
-      backgroundColor: pal.hero,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       builder: (ctx) => _GoalSheet(pal: pal, minutes: minutes),
     );
     if (m != null) {
@@ -1942,10 +2354,14 @@ class _TodayActivityState extends State<TodayActivity> {
     final totalSec = minutes * 60;
     int elapsedSec = 0;
     if (done) {
-      elapsedSec = ((plan.minutesDone[d] ?? minutes) * 60).clamp(0, totalSec).toInt();
+      elapsedSec = ((plan.minutesDone[d] ?? minutes) * 60)
+          .clamp(0, totalSec)
+          .toInt();
     } else if (running != null) {
       final left = running.end.difference(_now()).inSeconds;
-      final session = (running.minutes * 60 - left).clamp(0, running.minutes * 60).toInt();
+      final session = (running.minutes * 60 - left)
+          .clamp(0, running.minutes * 60)
+          .toInt();
       elapsedSec = (_partial * 60 + session).clamp(0, totalSec).toInt();
     } else {
       elapsedSec = (_partial * 60).clamp(0, totalSec).toInt();
@@ -1955,11 +2371,11 @@ class _TodayActivityState extends State<TodayActivity> {
     final leftMin = ((totalSec - elapsedSec) / 60).ceil();
     final freeText = done
         ? (doneMin < minutes
-            ? 'You gave $doneMin of $minutes minutes. Every moment counts.'
-            : 'You made time for yourself. Every moment counts.')
+              ? 'You gave $doneMin of $minutes minutes. Every moment counts.'
+              : 'You made time for yourself. Every moment counts.')
         : (running != null || _partial > 0
-            ? "You're doing beautifully. Just $leftMin ${leftMin == 1 ? 'minute' : 'minutes'} to go."
-            : 'A little time away makes room for more.');
+              ? "You're doing beautifully. Just $leftMin ${leftMin == 1 ? 'minute' : 'minutes'} to go."
+              : 'A little time away makes room for more.');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1967,11 +2383,21 @@ class _TodayActivityState extends State<TodayActivity> {
         // Dagbalk
         Row(
           children: [
-            Text(context.t.dayOfPlan(d, plan.total),
-                style: _sans(context, 13, color: pal.text, w: FontWeight.w600)),
+            Text(
+              context.t.dayOfPlan(d, plan.total),
+              style: _sans(context, 13, color: pal.text, w: FontWeight.w600),
+            ),
             const Spacer(),
-            Text(context.t.yourDayPlanUpper(plan.total),
-                style: _sans(context, 9, color: pal.muted, w: FontWeight.w600, ls: 1)),
+            Text(
+              context.t.yourDayPlanUpper(plan.total),
+              style: _sans(
+                context,
+                9,
+                color: pal.muted,
+                w: FontWeight.w600,
+                ls: 1,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -2014,7 +2440,11 @@ class _TodayActivityState extends State<TodayActivity> {
                             color: pal.primary,
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(Icons.check, size: 34, color: pal.onPrimary),
+                          child: Icon(
+                            Icons.check,
+                            size: 34,
+                            color: pal.onPrimary,
+                          ),
                         ),
                       )
                     : _Hero(category: day.category, pal: pal),
@@ -2033,61 +2463,89 @@ class _TodayActivityState extends State<TodayActivity> {
                 children: [
                   Row(
                     children: [
-                      Text(context.t.todaysChallengeUpper,
-                          style: _sans(context, 10,
-                              color: pal.primary, w: FontWeight.w700, ls: 1)),
+                      Text(
+                        context.t.todaysChallengeUpper,
+                        style: _sans(
+                          context,
+                          10,
+                          color: pal.primary,
+                          w: FontWeight.w700,
+                          ls: 1,
+                        ),
+                      ),
                       const Spacer(),
                       Icon(Icons.timer_outlined, size: 14, color: pal.muted),
                       const SizedBox(width: 4),
-                      Text(context.t.shortDuration(minutes),
-                          style: _sans(context, 11, color: pal.muted)),
+                      Text(
+                        context.t.shortDuration(minutes),
+                        style: _sans(context, 11, color: pal.muted),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Text(_momentTitle(context, day, minutes),
-                      style: _serif(context, 26, color: pal.text)),
+                  Text(
+                    _momentTitle(context, day, minutes),
+                    style: _serif(context, 26, color: pal.text),
+                  ),
                   const SizedBox(height: 8),
                   Text(
-                      done
-                          ? context.t.wellDoneMadeTime
-                          : context.t.planStepText(day.step.description),
-                      style: _sans(context, 12, color: pal.muted, h: 1.5)),
+                    done
+                        ? context.t.wellDoneMadeTime
+                        : context.t.planStepText(day.step.description),
+                    style: _sans(context, 12, color: pal.muted, h: 1.5),
+                  ),
                   if (!done) ...[
                     const SizedBox(height: 18),
                     if (running != null) ...[
                       Row(
                         children: [
-                          Icon(Icons.hourglass_bottom,
-                              size: 16, color: pal.primary),
+                          Icon(
+                            Icons.hourglass_bottom,
+                            size: 16,
+                            color: pal.primary,
+                          ),
                           const SizedBox(width: 8),
                           Text(
-                              context.t.inProgressLeft(_mmss(running.end.difference(_now()))),
-                              style: _sans(context, 12,
-                                  color: pal.primary, w: FontWeight.w600)),
+                            context.t.inProgressLeft(
+                              _mmss(running.end.difference(_now())),
+                            ),
+                            style: _sans(
+                              context,
+                              12,
+                              color: pal.primary,
+                              w: FontWeight.w600,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
                       _PrimaryButton(
-                          pal: pal,
-                          label: context.t.openMoment,
-                          icon: Icons.timer_outlined,
-                          onTap: () => _openMoment(plan, day)),
+                        pal: pal,
+                        label: context.t.openMoment,
+                        icon: Icons.timer_outlined,
+                        onTap: () => _openMoment(plan, day),
+                      ),
                     ] else ...[
                       _PrimaryButton(
-                          pal: pal,
-                          label: _partial > 0
-                              ? "Continue today's session"
-                              : context.t.startActivity,
-                          icon: Icons.play_arrow_rounded,
-                          onTap: () => _openMoment(plan, day)),
+                        pal: pal,
+                        label: _partial > 0
+                            ? "Continue today's session"
+                            : context.t.startActivity,
+                        icon: Icons.play_arrow_rounded,
+                        onTap: () => _openMoment(plan, day),
+                      ),
                       const SizedBox(height: 6),
                       Center(
                         child: TextButton.icon(
-                          style: TextButton.styleFrom(foregroundColor: pal.muted),
+                          style: TextButton.styleFrom(
+                            foregroundColor: pal.muted,
+                          ),
                           onPressed: () => _changeTime(plan, d, minutes, pal),
                           icon: const Icon(Icons.alarm, size: 16),
-                          label: Text(context.t.changeTime,
-                              style: _sans(context, 12, color: pal.muted)),
+                          label: Text(
+                            context.t.changeTime,
+                            style: _sans(context, 12, color: pal.muted),
+                          ),
                         ),
                       ),
                     ],
@@ -2108,13 +2566,25 @@ class _TodayActivityState extends State<TodayActivity> {
             children: [
               Row(
                 children: [
-                  Text('Phone-free today',
-                      style: _sans(context, 13,
-                          color: pal.text, w: FontWeight.w600)),
+                  Text(
+                    'Phone-free today',
+                    style: _sans(
+                      context,
+                      13,
+                      color: pal.text,
+                      w: FontWeight.w600,
+                    ),
+                  ),
                   const Spacer(),
-                  Text('$doneMin/$minutes min',
-                      style: _sans(context, 12,
-                          color: pal.text, w: FontWeight.w600)),
+                  Text(
+                    '$doneMin/$minutes min',
+                    style: _sans(
+                      context,
+                      12,
+                      color: pal.text,
+                      w: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -2140,8 +2610,10 @@ class _TodayActivityState extends State<TodayActivity> {
             Icon(Icons.wb_sunny_outlined, size: 16, color: pal.primary),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(tip,
-                  style: _sans(context, 12, color: pal.muted, h: 1.5)),
+              child: Text(
+                tip,
+                style: _sans(context, 12, color: pal.muted, h: 1.5),
+              ),
             ),
           ],
         ),

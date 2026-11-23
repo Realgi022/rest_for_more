@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/mode_schedule.dart';
+import '../data/repository/mode_schedule_repository.dart';  
 
 final modeScheduleService = ModeScheduleService();
 
@@ -14,7 +13,7 @@ typedef ModeScheduleActivator = FutureOr<void> Function(
 );
 
 class ModeScheduleService extends ChangeNotifier {
-  static const _schedulesKey = 'mode_schedules';
+  static const maxSchedulesPerMode = 10;
   static const _runnerInterval = Duration(seconds: 30);
 
   final List<ModeSchedule> _schedules = [];
@@ -48,37 +47,40 @@ class ModeScheduleService extends ChangeNotifier {
     _runner = null;
   }
 
-  Future<void> load() async {
-    final preferences = await SharedPreferences.getInstance();
-    final encodedSchedules = preferences.getStringList(_schedulesKey) ?? [];
+Future<void> load() async {
+  _schedules
+    ..clear()
+    ..addAll(await ModeScheduleRepository.loadSchedules());
 
-    _schedules
-      ..clear()
-      ..addAll(_deduplicateByMode(_decodeSchedules(encodedSchedules)));
+  notifyListeners();
+}
 
-    notifyListeners();
-  }
-
-  Future<void> addSchedule({
+  Future<bool> addSchedule({
     required ModeId modeId,
-    String name = '',
+    required String name,
+    required List<String> dates,
+    required bool repeatWeekly,
     required List<int> weekdays,
     required int startTimeMinutes,
     required int endTimeMinutes,
   }) async {
+    if (schedulesFor(modeId).length >= maxSchedulesPerMode) return false;
+
     final schedule = ModeSchedule(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
+      name: name.trim().isEmpty ? 'Schedule' : name.trim(),
       modeId: modeId,
-      name: name,
+      dates: [...dates]..sort(),
+      repeatWeekly: repeatWeekly,
       weekdays: [...weekdays]..sort(),
       startTimeMinutes: startTimeMinutes,
       endTimeMinutes: endTimeMinutes,
       enabled: true,
     );
 
-    _schedules.removeWhere((schedule) => schedule.modeId == modeId);
     _schedules.add(schedule);
     await _save();
+    return true;
   }
 
   Future<void> updateSchedule(ModeSchedule schedule) async {
@@ -105,15 +107,11 @@ class ModeScheduleService extends ChangeNotifier {
   }
 
   Future<void> _save() async {
-    final preferences = await SharedPreferences.getInstance();
-    final encodedSchedules = _schedules.map((schedule) {
-      return jsonEncode(schedule.toJson());
-    }).toList();
+  await ModeScheduleRepository.saveSchedules(_schedules);
 
-    await preferences.setStringList(_schedulesKey, encodedSchedules);
-    notifyListeners();
-    _checkSchedules();
-  }
+  notifyListeners();
+  _checkSchedules();
+}
 
   Future<void> _checkSchedules() async {
     final now = DateTime.now();
@@ -137,7 +135,10 @@ class ModeScheduleService extends ChangeNotifier {
   }
 
   _ScheduleWindow? _activeWindowFor(ModeSchedule schedule, DateTime now) {
-    if (!schedule.enabled || schedule.weekdays.isEmpty) return null;
+    if (!schedule.enabled ||
+        (schedule.weekdays.isEmpty && schedule.dates.isEmpty)) {
+      return null;
+    }
 
     final currentMinutes = now.hour * 60 + now.minute;
     final startMinutes = schedule.startTimeMinutes;
@@ -146,7 +147,7 @@ class ModeScheduleService extends ChangeNotifier {
     if (startMinutes == endMinutes) return null;
 
     if (startMinutes < endMinutes) {
-      if (!schedule.weekdays.contains(now.weekday)) return null;
+      if (!_isScheduledOn(schedule, now)) return null;
       if (currentMinutes < startMinutes || currentMinutes >= endMinutes) {
         return null;
       }
@@ -157,8 +158,7 @@ class ModeScheduleService extends ChangeNotifier {
       return _ScheduleWindow(start: start, end: end);
     }
 
-    if (currentMinutes >= startMinutes &&
-        schedule.weekdays.contains(now.weekday)) {
+    if (currentMinutes >= startMinutes && _isScheduledOn(schedule, now)) {
       final start = _dateWithMinutes(now, startMinutes);
       final end = _dateWithMinutes(
         now.add(const Duration(days: 1)),
@@ -170,8 +170,7 @@ class ModeScheduleService extends ChangeNotifier {
 
     final previousDay = now.subtract(const Duration(days: 1));
 
-    if (currentMinutes < endMinutes &&
-        schedule.weekdays.contains(previousDay.weekday)) {
+    if (currentMinutes < endMinutes && _isScheduledOn(schedule, previousDay)) {
       final start = _dateWithMinutes(previousDay, startMinutes);
       final end = _dateWithMinutes(now, endMinutes);
 
@@ -191,33 +190,28 @@ class ModeScheduleService extends ChangeNotifier {
     );
   }
 
-  List<ModeSchedule> _decodeSchedules(List<String> encodedSchedules) {
-    final schedules = <ModeSchedule>[];
-
-    for (final encodedSchedule in encodedSchedules) {
-      try {
-        schedules.add(
-          ModeSchedule.fromJson(
-            Map<String, Object?>.from(jsonDecode(encodedSchedule) as Map),
-          ),
-        );
-      } catch (_) {
-        // Ignore stale schedule records from older local builds.
-      }
-    }
-
-    return schedules;
+  List<ModeSchedule> schedulesForDay(DateTime date) {
+    final previousDay = date.subtract(const Duration(days: 1));
+    return _sortedSchedules(
+      _schedules.where((schedule) {
+        if (!schedule.enabled) return false;
+        if (_isScheduledOn(schedule, date)) return true;
+        return schedule.startTimeMinutes > schedule.endTimeMinutes &&
+            _isScheduledOn(schedule, previousDay);
+      }).toList(),
+    );
   }
 
-  List<ModeSchedule> _deduplicateByMode(List<ModeSchedule> schedules) {
-    final schedulesByMode = <ModeId, ModeSchedule>{};
-
-    for (final schedule in schedules) {
-      schedulesByMode[schedule.modeId] = schedule;
-    }
-
-    return schedulesByMode.values.toList();
+  bool _isScheduledOn(ModeSchedule schedule, DateTime date) {
+    return schedule.repeatWeekly
+        ? schedule.weekdays.contains(date.weekday)
+        : schedule.dates.contains(_dateKey(date));
   }
+
+  String _dateKey(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
 
   List<ModeSchedule> _sortedSchedules(List<ModeSchedule> schedules) {
     return schedules..sort((a, b) {
