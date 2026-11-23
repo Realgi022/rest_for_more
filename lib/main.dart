@@ -18,7 +18,7 @@ import 'services/timer_service.dart';
 import 'controllers/time_format_controller.dart';
 import 'controllers/week_start_controller.dart';
 import 'theme/app_theme.dart';
-import 'theme/theme_controller.dart';
+import 'controllers/theme_controller.dart';
 import 'controllers/app_language.dart';
 
 bool onboardingDone = false;
