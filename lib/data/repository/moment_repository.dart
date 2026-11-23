@@ -25,6 +25,33 @@ class MomentRepository {
     return MomentSession(day, minutes, DateTime.parse(startStr));
   }
 
+  static Future<DateTime?> loadPausedAt() async {
+    final p = await SharedPreferences.getInstance();
+    final timestamp = p.getInt('moment_paused_at');
+
+    if (timestamp == null) return null;
+
+    return DateTime.fromMillisecondsSinceEpoch(timestamp);
+  }
+
+  static Future<void> savePausedAt(DateTime? at) async {
+    final p = await SharedPreferences.getInstance();
+
+    if (at == null) {
+      await p.remove('moment_paused_at');
+    } else {
+      await p.setInt(
+        'moment_paused_at',
+        at.millisecondsSinceEpoch,
+      );
+    }
+  }
+
+  static Future<void> updateMomentStart(DateTime start) async {
+  final p = await SharedPreferences.getInstance();
+  await p.setString('moment_start', start.toIso8601String());
+}
+
   static Future<void> clearMoment() async {
     final p = await SharedPreferences.getInstance();
 

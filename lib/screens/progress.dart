@@ -5,7 +5,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../localization/app_language.dart';
 import '../services/plan_service.dart';
@@ -14,6 +13,8 @@ import '../theme/app_card.dart';
 import '../models/moment_session.dart';
 import '../models/plan_day.dart';
 import '../models/plan_data.dart';
+import '../data/repository/plan_repository.dart';
+import '../data/repository/moment_repository.dart';
 
 const _icons = <String, IconData>{
   'Reading': Icons.menu_book_outlined,
@@ -38,25 +39,20 @@ DateTime _now() => _momentPausedAt ?? DateTime.now();
 
 Future<MomentSession?> _activeMoment() async {
   final m = await PlanService.activeMoment();
-  final p = await SharedPreferences.getInstance();
+
   if (m == null) {
     _momentPausedAt = null;
-    await p.remove('moment_paused_at');
+    await MomentRepository.savePausedAt(null);
     return null;
   }
-  final ms = p.getInt('moment_paused_at');
-  _momentPausedAt = ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+
+  _momentPausedAt = await MomentRepository.loadPausedAt();
   return m;
 }
 
 Future<void> _setPaused(DateTime? at) async {
   _momentPausedAt = at;
-  final p = await SharedPreferences.getInstance();
-  if (at == null) {
-    await p.remove('moment_paused_at');
-  } else {
-    await p.setInt('moment_paused_at', at.millisecondsSinceEpoch);
-  }
+  await MomentRepository.savePausedAt(at);
 }
 
 Future<void> _clearMoment() async {
@@ -65,24 +61,24 @@ Future<void> _clearMoment() async {
 }
 
 /// Minuten die vandaag al gedaan zijn maar het doel nog niet bereiken.
-Future<int> _partialMin(int day) async =>
-    (await SharedPreferences.getInstance()).getInt('plan_partial_$day') ?? 0;
+Future<int> _partialMin(int day) {
+  return PlanRepository.loadPartialMinutes(day);
+}
 
 /// Verwerkt een afgeronde of gestopte sessie. De dag telt pas als voltooid
 /// wanneer het doel (bv. 45 min) bereikt is; anders blijven de minuten bewaard
 /// en kan je later doorgaan. Geeft true terug als de dag voltooid is.
 Future<bool> _applySession(PlanDay planDay, int sessionMin, int goal) async {
-  final p = await SharedPreferences.getInstance();
-  final day = planDay.day;
-  final total = (p.getInt('plan_partial_$day') ?? 0) + sessionMin;
+  final total =
+      await PlanRepository.loadPartialMinutes(planDay.day) + sessionMin;
 
   if (total >= goal) {
     await PlanService.completeStep(planDay, minutes: goal);
-    await p.remove('plan_partial_$day');
+    await PlanRepository.savePartialMinutes(planDay.day, 0);
     return true;
   }
 
-  await p.setInt('plan_partial_$day', total);
+  await PlanRepository.savePartialMinutes(planDay.day, total);
   return false;
 }
 
@@ -375,10 +371,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   Navigator.pop(ctx);
                   // Plan opnieuw: vandaag is dag 1, alles gewist
                   await PlanService.reset();
-                  final sp = await SharedPreferences.getInstance();
-                  for (var i = 1; i <= 60; i++) {
-                    await sp.remove('plan_partial_$i');
-                  }
+                  await PlanRepository.clearPartialMinutes();
                   await PlanService.markIntroSeen();
                   setState(() => _selected = null);
                   await _load();
@@ -1821,14 +1814,14 @@ class _MomentScreenState extends State<_MomentScreen> {
   }
 
   /// Bij hervatten schuiven we de starttijd op met de pauzeduur.
-  Future<void> _shiftStart(Duration by) async {
-    final s = _session;
-    if (s == null) return;
-    final moved = s.start.add(by);
-    final p = await SharedPreferences.getInstance();
-    await p.setInt('moment_start', moved.millisecondsSinceEpoch);
-    _session = MomentSession(s.day, s.minutes, moved);
-  }
+Future<void> _shiftStart(Duration by) async {
+  final s = _session;
+  if (s == null) return;
+
+  final moved = s.start.add(by);
+  await MomentRepository.updateMomentStart(moved);
+  _session = MomentSession(s.day, s.minutes, moved);
+}
 
   Future<void> _togglePause() async {
     if (_session == null) return;
