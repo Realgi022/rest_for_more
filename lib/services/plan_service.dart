@@ -4,6 +4,7 @@ import '../models/plan_day.dart';
 import '../models/plan_data.dart';
 import '../data/repository/plan_repository.dart';
 import '../data/repository/moment_repository.dart';
+import '../models/completed_steps.dart';
 
 class PlanService {
   static Future<PlanData> load() async {
@@ -110,6 +111,21 @@ class PlanService {
   static Future<void> complete(int day, {int? minutes}) async {
     await PlanRepository.complete(day, minutes: minutes);
   }
+  
+  static Future<void> completeStep(PlanDay day, {int? minutes}) async {
+  await PlanRepository.complete(day.day, minutes: minutes);
+
+  final completedStep = CompletedStep(
+    day: day.day,
+    category: day.category,
+    title: day.step.title,
+    description: day.step.description,
+    completedAt: DateTime.now(),
+    minutes: minutes ?? day.minutes,
+  );
+
+  await PlanRepository.saveCompletedStep(completedStep);
+}
 
   static Future<void> setGoal(int day, int minutes) async {
     await PlanRepository.setGoal(day, minutes);

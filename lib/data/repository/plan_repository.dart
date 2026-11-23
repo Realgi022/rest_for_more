@@ -1,6 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'onboarding_repository.dart';
 import '../../models/plan_data.dart';
+import 'dart:convert';
+import '../../models/completed_steps.dart';
 
 class PlanRepository {
 static Future<List<String>> loadInterests() async {
@@ -51,6 +53,38 @@ static Future<List<String>> loadLength() async {
     final p = await SharedPreferences.getInstance();
     await p.setStringList('plan_completed', completed);
   }
+
+static const String _completedStepsKey = 'completed_steps';
+
+static Future<List<CompletedStep>> loadCompletedSteps() async {
+  final p = await SharedPreferences.getInstance();
+  final records = p.getStringList(_completedStepsKey) ?? [];
+
+  return records.map((record) {
+    return CompletedStep.fromJson(
+      jsonDecode(record) as Map<String, dynamic>,
+    );
+  }).toList();
+}
+
+static Future<void> saveCompletedStep(CompletedStep step) async {
+  final p = await SharedPreferences.getInstance();
+
+  final steps = await loadCompletedSteps();
+
+  // Voorkom dubbele records voor dezelfde Step.
+  steps.removeWhere((existing) => existing.day == step.day);
+
+  steps.add(step);
+  steps.sort(
+    (a, b) => a.completedAt.compareTo(b.completedAt),
+  );
+
+  await p.setStringList(
+    _completedStepsKey,
+    steps.map((step) => jsonEncode(step.toJson())).toList(),
+  );
+}
 
   static Future<int?> loadGoalOverride(int day) async {
     final p = await SharedPreferences.getInstance();
@@ -139,5 +173,6 @@ static Future<List<String>> loadLength() async {
       await p.remove('plan_goal_$d');
       await p.remove('plan_done_min_$d');
     }
+    await p.remove(_completedStepsKey);
   }
 }

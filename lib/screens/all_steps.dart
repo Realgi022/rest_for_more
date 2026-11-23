@@ -1,9 +1,10 @@
-
 import 'package:flutter/material.dart';
 
 import '../localization/app_language.dart';
 import '../theme/app_card.dart';
 import '../theme/app_spacing.dart';
+import '../data/repository/plan_repository.dart';
+import '../models/completed_steps.dart';
 
 class AllStepsScreen extends StatefulWidget {
   const AllStepsScreen({super.key});
@@ -15,12 +16,27 @@ class AllStepsScreen extends StatefulWidget {
 class _AllStepsScreenState extends State<AllStepsScreen> {
   DateTime selectedMonth = DateTime.now();
 
+  List<CompletedStep> completedSteps = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCompletedSteps();
+  }
+
+  Future<void> _loadCompletedSteps() async {
+    final steps = await PlanRepository.loadCompletedSteps();
+
+    if (!mounted) return;
+
+    setState(() {
+      completedSteps = steps;
+    });
+  }
+
   void previousMonth() {
     setState(() {
-      selectedMonth = DateTime(
-        selectedMonth.year,
-        selectedMonth.month - 1,
-      );
+      selectedMonth = DateTime(selectedMonth.year, selectedMonth.month - 1);
     });
   }
 
@@ -28,18 +44,14 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
     if (isCurrentMonth) return;
 
     setState(() {
-      selectedMonth = DateTime(
-        selectedMonth.year,
-        selectedMonth.month + 1,
-      );
+      selectedMonth = DateTime(selectedMonth.year, selectedMonth.month + 1);
     });
   }
 
   bool get isCurrentMonth {
     final now = DateTime.now();
 
-    return selectedMonth.year == now.year &&
-        selectedMonth.month == now.month;
+    return selectedMonth.year == now.year && selectedMonth.month == now.month;
   }
 
   @override
@@ -51,34 +63,9 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
     final monthLabel =
         '${t.months[selectedMonth.month - 1]} ${selectedMonth.year}';
 
-    // Placeholder data - replace with actual completed steps later.
-    // Kept inside build so descriptions update when language changes.
-    final completedSteps = <Map<String, dynamic>>[
-      {
-        'icon': const Icon(Icons.water_drop),
-        'title': t.stepNumber(3),
-        'date': DateTime.now(),
-        'description': t.waterStepDone,
-      },
-      {
-        'icon': const Icon(Icons.chair),
-        'title': t.stepNumber(2),
-        'description': t.prepareForRestfulNight,
-        'date': DateTime(2026, 9, 25),
-      },
-      {
-        'icon': const Icon(Icons.directions_walk),
-        'title': t.stepNumber(1),
-        'description': t.walkOutsideFor15Minutes,
-        'date': DateTime(2026, 9, 21),
-      },
-    ];
-
     final monthlySteps = completedSteps.where((step) {
-      final date = step['date'] as DateTime;
-
-      return date.year == selectedMonth.year &&
-          date.month == selectedMonth.month;
+      return step.completedAt.year == selectedMonth.year &&
+          step.completedAt.month == selectedMonth.month;
     }).toList();
 
     return Scaffold(
@@ -124,11 +111,7 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Image.asset(
-                      'assets/Icon moon.png',
-                      width: 24,
-                      height: 24,
-                    ),
+                    Image.asset('assets/Icon moon.png', width: 24, height: 24),
 
                     const SizedBox(width: AppSpacing.sm),
 
@@ -144,9 +127,7 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            TextSpan(
-                              text: t.completeFirstStepOfMonth,
-                            ),
+                            TextSpan(text: t.completeFirstStepOfMonth),
                           ],
                         ),
                       ),
@@ -172,62 +153,58 @@ class _AllStepsScreenState extends State<AllStepsScreen> {
                 Expanded(
                   child: ListView.separated(
                     itemCount: monthlySteps.length,
+
                     separatorBuilder: (context, index) =>
-                        const SizedBox(
-                          height: AppSpacing.xxl,
-                        ),
+                        const SizedBox(height: AppSpacing.xxl),
+
                     itemBuilder: (context, index) {
                       final step = monthlySteps[index];
-                      final date = step['date'] as DateTime;
+                      final date = step.completedAt;
 
                       return Container(
                         padding: const EdgeInsets.all(18),
                         decoration: appCardDecoration(context),
                         child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              step['icon'] as Widget,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.check_circle_outline),
 
-                              const SizedBox(
-                                width: AppSpacing.sm,
-                              ),
+                                const SizedBox(width: AppSpacing.sm),
 
-                              Expanded(
-                                child: Text(
-                                  step['title'] as String,
-                                  style: theme.textTheme.titleMedium,
+                                Expanded(
+                                  child: Text(
+                                    step.title,
+                                    style: theme.textTheme.titleMedium,
+                                  ),
                                 ),
+
+                                const SizedBox(width: AppSpacing.sm),
+
+                                Text(
+                                  '${date.day}-${date.month}',
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: AppSpacing.md),
+
+                            Divider(
+                              height: 1,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.2,
                               ),
+                            ),
 
-                              const SizedBox(
-                                width: AppSpacing.sm,
-                              ),
+                            const SizedBox(height: AppSpacing.md),
 
-                              Text(
-                                '${date.day}-${date.month}',
-                                style: theme.textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: AppSpacing.md),
-
-                          Divider(
-                            height: 1,
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.2),
-                          ),
-
-                          const SizedBox(height: AppSpacing.md),
-
-                          Text(
-                            step['description'] as String,
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ],
+                            Text(
+                              step.description,
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          ],
                         ),
                       );
                     },

@@ -71,14 +71,17 @@ Future<int> _partialMin(int day) async =>
 /// Verwerkt een afgeronde of gestopte sessie. De dag telt pas als voltooid
 /// wanneer het doel (bv. 45 min) bereikt is; anders blijven de minuten bewaard
 /// en kan je later doorgaan. Geeft true terug als de dag voltooid is.
-Future<bool> _applySession(int day, int sessionMin, int goal) async {
+Future<bool> _applySession(PlanDay planDay, int sessionMin, int goal) async {
   final p = await SharedPreferences.getInstance();
+  final day = planDay.day;
   final total = (p.getInt('plan_partial_$day') ?? 0) + sessionMin;
+
   if (total >= goal) {
-    await PlanService.complete(day, minutes: goal);
+    await PlanService.completeStep(planDay, minutes: goal);
     await p.remove('plan_partial_$day');
     return true;
   }
+
   await p.setInt('plan_partial_$day', total);
   return false;
 }
@@ -197,7 +200,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
     if (active != null && !_now().isBefore(active.end)) {
       if (!plan.completed.contains(active.day)) {
         await _applySession(
-          active.day,
+          plan.days[active.day - 1],
           active.minutes,
           plan.minutesFor(active.day),
         );
@@ -262,7 +265,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
       ),
     );
     if (result != null) {
-      await _applySession(day.day, result, goal);
+      await _applySession(day, result, goal);
       await _clearMoment();
     }
     // Geri gidildiyse sayaç arka planda devam eder, burada yeniden okunur
@@ -2170,7 +2173,7 @@ class _TodayActivityState extends State<TodayActivity> {
     if (active != null && !_now().isBefore(active.end)) {
       if (!plan.completed.contains(active.day)) {
         await _applySession(
-          active.day,
+          plan.days[active.day - 1],
           active.minutes,
           plan.minutesFor(active.day),
         );
@@ -2220,7 +2223,7 @@ class _TodayActivityState extends State<TodayActivity> {
       ),
     );
     if (result != null) {
-      await _applySession(day.day, result, goal);
+      await _applySession(day, result, goal);
       await _clearMoment();
     }
     await _load();
