@@ -1,13 +1,108 @@
-import 'package:circle_time_progress/circle_time_progress.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rest_for_more/localization/app_language.dart';
 import 'package:rest_for_more/models/mode_schedule.dart';
 import 'package:rest_for_more/services/mode_schedule_service.dart';
+import 'package:rest_for_more/services/focus_history_service.dart';
 import 'package:rest_for_more/services/timer_service.dart';
 import 'package:rest_for_more/controllers/time_format_controller.dart';
 import 'package:rest_for_more/controllers/week_start_controller.dart';
+
+// Lettertypen komen uit het app-thema, zodat deze pagina er hetzelfde uitziet
+// als de andere pagina's.
+TextStyle _serif(BuildContext c, double? size, {Color? color}) {
+  final base = Theme.of(c).textTheme.headlineMedium ?? const TextStyle();
+  return base.copyWith(fontSize: size, color: color);
+}
+
+TextStyle _sans(BuildContext c, double? size,
+    {Color? color, FontWeight? w, double? h, double? ls}) {
+  final base = Theme.of(c).textTheme.bodyMedium ?? const TextStyle();
+  return base.copyWith(
+      fontSize: size, color: color, fontWeight: w, height: h, letterSpacing: ls);
+}
+
+/// Zelfde kleuren als de Today- en Progress-pagina.
+class _Pal {
+  final Color card, hero, primary, onPrimary, text, muted, line;
+  const _Pal(this.card, this.hero, this.primary, this.onPrimary, this.text,
+      this.muted, this.line);
+
+  static _Pal of(BuildContext context) {
+    final theme = Theme.of(context);
+    if (theme.brightness == Brightness.dark) {
+      final bg = theme.scaffoldBackgroundColor;
+      Color lift(double a) =>
+          Color.alphaBlend(Colors.white.withValues(alpha: a), bg);
+      return _Pal(
+        lift(0.10),
+        lift(0.17),
+        const Color(0xFFD8B79B),
+        const Color(0xFF2A1F19),
+        const Color(0xFFF3EDE4),
+        const Color(0xFFBDA999),
+        lift(0.26),
+      );
+    }
+    return const _Pal(
+      Color(0xFFEBE6DA),
+      Color(0xFFF4F0E7),
+      Color(0xFF7B563D),
+      Colors.white,
+      Color(0xFF4E3B31),
+      Color(0xFF8E7B6C),
+      Color(0xFFD9D0BF),
+    );
+  }
+}
+
+/// Today en Progress tonen hun tekst iets groter; hier ook, zodat het gelijk is.
+Widget _scaled(BuildContext context, Widget child) => MediaQuery(
+      data: MediaQuery.of(context)
+          .copyWith(textScaler: const TextScaler.linear(1.15)),
+      child: child,
+    );
+
+
+class _PillButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final bool filled;
+  const _PillButton(
+      {required this.label, required this.onTap, this.filled = true});
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = _Pal.of(context);
+    final textStyle = _sans(context, 14,
+        color: filled ? pal.onPrimary : pal.text, w: FontWeight.w600);
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: filled
+          ? FilledButton(
+              onPressed: onTap,
+              style: FilledButton.styleFrom(
+                backgroundColor: pal.primary,
+                foregroundColor: pal.onPrimary,
+                minimumSize: const Size.fromHeight(52),
+                shape: const StadiumBorder(),
+              ),
+              child: Text(label, style: textStyle),
+            )
+          : OutlinedButton(
+              onPressed: onTap,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: pal.text,
+                minimumSize: const Size.fromHeight(52),
+                side: BorderSide(color: pal.line),
+                shape: const StadiumBorder(),
+              ),
+              child: Text(label, style: textStyle),
+            ),
+    );
+  }
+}
 
 class ModeMomentScreen extends StatefulWidget {
   final ModeId modeId;
@@ -16,6 +111,11 @@ class ModeMomentScreen extends StatefulWidget {
 
   @override
   State<ModeMomentScreen> createState() => _ModeMomentScreenState();
+}
+
+/// Korte naam die ook werkt voor oudere verwijzingen naar het Focus-scherm.
+class FocusMomentScreen extends ModeMomentScreen {
+  const FocusMomentScreen({super.key});
 }
 
 class _ModeMomentScreenState extends State<ModeMomentScreen> {
@@ -27,17 +127,20 @@ class _ModeMomentScreenState extends State<ModeMomentScreen> {
       listenable: Listenable.merge([timer, timeFormatController]),
       builder: (context, _) {
         return Scaffold(
-          appBar: AppBar(),
+          appBar: AppBar(toolbarHeight: 44),
           body: SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _Header(modeId: widget.modeId),
-                  const SizedBox(height: 32),
-                  _TimerCard(modeId: widget.modeId),
-                ],
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+              child: _scaled(
+                context,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Header(modeId: widget.modeId),
+                    const SizedBox(height: 18),
+                    _TimerCard(modeId: widget.modeId),
+                  ],
+                ),
               ),
             ),
           ),
@@ -54,19 +157,23 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final muted = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
+    // Zelfde opbouw als de Today-pagina: titel zonder schaling, ondertitel
+    // in bodyMedium met gedempte kleur.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          context.t.modeName(modeId.value),
-          style: GoogleFonts.cormorantGaramond(
-            fontSize: 40,
-            fontWeight: FontWeight.bold,
+        MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+          child: Text(
+            context.t.modeName(modeId.value),
+            style: Theme.of(context).textTheme.headlineMedium,
           ),
         ),
+        const SizedBox(height: 4),
         Text(
           context.t.modeMomentTimer(modeId.value),
-          style: GoogleFonts.manrope(fontSize: 20),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted),
         ),
       ],
     );
@@ -82,20 +189,26 @@ class _TimerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final timer = FocusTimerService.instance;
 
-    return timer.timerStarted
-        ? const _ActiveTimerCard()
-        : Column(
-            children: [
-              const _InactiveTimerCard(),
-              const SizedBox(height: 24),
-              _ModeScheduleSection(modeId: modeId),
-            ],
-          );
+    if (timer.timerStarted) return const _ActiveTimerCard();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _InactiveTimerCard(modeId: modeId),
+        const SizedBox(height: 36),
+        _ModeScheduleSection(modeId: modeId),
+        if (modeId == ModeId.focus) ...[
+          const SizedBox(height: 36),
+          const _FocusHistorySection(),
+        ],
+      ],
+    );
   }
 }
 
 class _InactiveTimerCard extends StatefulWidget {
-  const _InactiveTimerCard();
+  final ModeId modeId;
+  const _InactiveTimerCard({required this.modeId});
 
   @override
   State<_InactiveTimerCard> createState() => _InactiveTimerCardState();
@@ -104,184 +217,408 @@ class _InactiveTimerCard extends StatefulWidget {
 class _InactiveTimerCardState extends State<_InactiveTimerCard> {
   final timer = FocusTimerService.instance;
 
-  late final FixedExtentScrollController hoursController;
-  late final FixedExtentScrollController minutesController;
-  late final FixedExtentScrollController secondsController;
+  int get _h => timer.selectedHours;
+  int get _m => timer.selectedMinutes;
+  int get _s => timer.selectedSeconds;
 
-  @override
-  void initState() {
-    super.initState();
+  int get _total => _h * 3600 + _m * 60 + _s;
 
-    hoursController = FixedExtentScrollController(
-      initialItem: timer.selectedHours,
-    );
-
-    minutesController = FixedExtentScrollController(
-      initialItem: timer.selectedMinutes,
-    );
-
-    secondsController = FixedExtentScrollController(
-      initialItem: timer.selectedSeconds,
-    );
+  void _set(int h, int m, int s) {
+    timer.setDuration(hours: h, minutes: m, seconds: s);
   }
 
-  @override
-  void dispose() {
-    hoursController.dispose();
-    minutesController.dispose();
-    secondsController.dispose();
-
-    super.dispose();
+  void _start() {
+    if (_total == 0) {
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Choose a time first.')),
+      );
+      return;
+    }
+    timer.startTimer();
   }
 
   @override
   Widget build(BuildContext context) {
-    final timer = FocusTimerService.instance;
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    return ListenableBuilder(
+      listenable: timer,
+      builder: (context, _) => _buildCard(context),
+    );
+  }
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(16),
-      ),
+  Widget _buildCard(BuildContext context) {
+    final pal = _Pal.of(context);
+    final t = context.t;
+
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(12, 16, 12, 18),
+          decoration: BoxDecoration(
+            color: pal.hero,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _TimeStepper(
+                    value: _h,
+                    max: 23,
+                    label: t.hours.toLowerCase(),
+                    onChanged: (v) => _set(v, _m, _s),
+                  ),
+                  const _Colon(),
+                  _TimeStepper(
+                    value: _m,
+                    max: 59,
+                    label: t.minutesLabel.toLowerCase(),
+                    onChanged: (v) => _set(_h, v, _s),
+                  ),
+                  const _Colon(),
+                  _TimeStepper(
+                    value: _s,
+                    max: 59,
+                    label: t.seconds.toLowerCase(),
+                    onChanged: (v) => _set(_h, _m, v),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _TimerPresets(
+                currentSeconds: _total,
+                onApply: (seconds) => _set(
+                  seconds ~/ 3600,
+                  (seconds % 3600) ~/ 60,
+                  seconds % 60,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _PillButton(label: t.start, onTap: _start),
+        const SizedBox(height: 12),
+        _PillButton(
+          label: t.planMode(t.modeName(widget.modeId.value)),
+          filled: false,
+          onTap: () => _openScheduleForm(context, widget.modeId),
+        ),
+      ],
+    );
+  }
+}
+
+class _Colon extends StatelessWidget {
+  const _Colon();
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = _Pal.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 52),
+      child: Text(':', style: _serif(context, 34, color: pal.muted)),
+    );
+  }
+}
+
+/// Getal met pijltjes erboven en eronder. Tikken op een pijltje of
+/// omhoog/omlaag slepen op het getal verandert de waarde.
+class _TimeStepper extends StatefulWidget {
+  final int value;
+  final int max;
+  final String label;
+  final ValueChanged<int> onChanged;
+  final String Function(int)? format;
+
+  const _TimeStepper({
+    required this.value,
+    required this.max,
+    required this.label,
+    required this.onChanged,
+    this.format,
+  });
+
+  @override
+  State<_TimeStepper> createState() => _TimeStepperState();
+}
+
+class _TimeStepperState extends State<_TimeStepper> {
+  static const double _stepPx = 22;
+  double _drag = 0;
+
+  int _wrap(int v) {
+    final n = widget.max + 1;
+    return ((v % n) + n) % n;
+  }
+
+  void _step(int by) => widget.onChanged(_wrap(widget.value + by));
+
+  void _onDrag(DragUpdateDetails d) {
+    _drag += d.delta.dy;
+    var v = widget.value;
+    var changed = false;
+    while (_drag <= -_stepPx) {
+      _drag += _stepPx;
+      v = _wrap(v + 1);
+      changed = true;
+    }
+    while (_drag >= _stepPx) {
+      _drag -= _stepPx;
+      v = _wrap(v - 1);
+      changed = true;
+    }
+    if (changed) widget.onChanged(v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = _Pal.of(context);
+
+    Widget chevron(IconData icon, int by) => InkResponse(
+          onTap: () => _step(by),
+          radius: 22,
+          child: SizedBox(
+            width: 56,
+            height: 36,
+            child: Icon(icon, size: 24, color: pal.muted),
+          ),
+        );
+
+    return SizedBox(
+      width: 92,
       child: Column(
         children: [
-          _DurationsPicker(
-            hoursController: hoursController,
-            minutesController: minutesController,
-            secondsController: secondsController,
-          ),
-          const SizedBox(height: 32),
-          _TimerPresets(
-            hoursController: hoursController,
-            minutesController: minutesController,
-            secondsController: secondsController,
-          ),
-          const SizedBox(height: 32),
-
-          ElevatedButton(
-            onPressed: timer.startTimer,
-            child: Text(
-              context.t.start,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.cormorantGaramond(
-                color: colorScheme.onPrimary,
-                fontWeight: FontWeight.normal,
-                fontSize: 20,
+          chevron(Icons.keyboard_arrow_up, 1),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onVerticalDragUpdate: _onDrag,
+            onVerticalDragEnd: (_) => _drag = 0,
+            child: SizedBox(
+              height: 74,
+              child: Center(
+                child: Text(
+                  widget.format?.call(widget.value) ??
+                      widget.value.toString().padLeft(2, '0'),
+                  style: _serif(context, 46, color: pal.text).copyWith(height: 1.4),
+                ),
               ),
             ),
           ),
-
-          // ElevatedButton(
-          //   onPressed: timer.startTimer,
-          //   child: Text(
-          //     'Start',
-          //     textAlign: TextAlign.center,
-          //     style: GoogleFonts.cormorantGaramond(
-          //       color: theme.colorScheme.onPrimary,
-          //       fontWeight: FontWeight.normal,
-          //       fontSize: 20,
-          //     ),
-          //   ),
-          // ),
+          Text(widget.label, style: _sans(context, 12, color: pal.muted)),
+          chevron(Icons.keyboard_arrow_down, -1),
         ],
       ),
     );
   }
 }
 
-class _DurationsPicker extends StatelessWidget {
-  final FixedExtentScrollController hoursController;
-  final FixedExtentScrollController minutesController;
-  final FixedExtentScrollController secondsController;
+class _TimerPresets extends StatefulWidget {
+  final int currentSeconds;
+  final ValueChanged<int> onApply;
 
-  const _DurationsPicker({
-    required this.hoursController,
-    required this.minutesController,
-    required this.secondsController,
-  });
+  const _TimerPresets({required this.currentSeconds, required this.onApply});
+
+  @override
+  State<_TimerPresets> createState() => _TimerPresetsState();
+}
+
+class _TimerPresetsState extends State<_TimerPresets> {
+  static const _prefsKey = 'timer_custom_presets';
+  static const _builtIn = [300, 600, 1200, 1800]; // 5, 10, 20 en 30 minuten
+
+  List<int> _custom = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = (prefs.getStringList(_prefsKey) ?? const <String>[])
+        .map(int.tryParse)
+        .whereType<int>()
+        .where((s) => s > 0)
+        .toList();
+    if (!mounted) return;
+    setState(() => _custom = saved);
+  }
+
+  Future<void> _persist() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _prefsKey,
+      _custom.map((s) => s.toString()).toList(),
+    );
+  }
+
+  Future<void> _removeCustom(int seconds) async {
+    final remove = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Remove ${_presetLabel(seconds)}?'),
+        content: const Text('This preset will be removed from your list.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (remove != true) return;
+
+    setState(() => _custom = _custom.where((s) => s != seconds).toList());
+    await _persist();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final timer = FocusTimerService.instance;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    final current = widget.currentSeconds;
+
+    return Column(
       children: [
-        _TimePickerColumn(
-          label: context.t.hours,
-          maxValue: 23,
-          controller: hoursController,
-          onChanged: timer.setHours,
-        ),
-        _TimePickerColumn(
-          label: context.t.minutesLabel,
-          maxValue: 59,
-          controller: minutesController,
-          onChanged: timer.setMinutes,
-        ),
-        _TimePickerColumn(
-          label: context.t.seconds,
-          maxValue: 59,
-          controller: secondsController,
-          onChanged: timer.setSeconds,
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final seconds in _builtIn)
+              _PresetChip(
+                label: _presetLabel(seconds),
+                selected: current == seconds,
+                onTap: () => widget.onApply(seconds),
+              ),
+            for (final seconds in _custom)
+              _PresetChip(
+                label: _presetLabel(seconds),
+                selected: current == seconds,
+                onTap: () => widget.onApply(seconds),
+                onLongPress: () => _removeCustom(seconds),
+              ),
+          ],
         ),
       ],
     );
   }
 }
 
-class _TimePickerColumn extends StatelessWidget {
-  final String label;
-  final int maxValue;
-  final FixedExtentScrollController controller;
-  final ValueChanged<int> onChanged;
+String _presetLabel(int totalSeconds) {
+  final hours = totalSeconds ~/ 3600;
+  final minutes = (totalSeconds % 3600) ~/ 60;
+  final seconds = totalSeconds % 60;
 
-  const _TimePickerColumn({
+  final parts = <String>[];
+  if (hours > 0) parts.add('$hours h');
+  if (minutes > 0) parts.add('$minutes min');
+  if (seconds > 0) parts.add('$seconds sec');
+  return parts.join(' ');
+}
+
+class _PresetChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  final bool selected;
+
+  const _PresetChip({
     required this.label,
-    required this.maxValue,
-    required this.controller,
-    required this.onChanged,
+    required this.onTap,
+    this.onLongPress,
+    this.selected = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final pal = _Pal.of(context);
+    final textColor = selected ? pal.onPrimary : pal.text;
 
-    return Column(
-      children: [
-        Text(label, style: GoogleFonts.manrope(color: colorScheme.onSurface)),
-
-        const SizedBox(height: 8),
-
-        SizedBox(
-          width: 80,
-          height: 150,
-          child: CupertinoPicker(
-            scrollController: controller,
-            itemExtent: 40,
-            onSelectedItemChanged: onChanged,
-            selectionOverlay: DecoratedBox(
-              decoration: BoxDecoration(
-                color: colorScheme.primary.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            children: List.generate(
-              maxValue + 1,
-              (index) => Center(
-                child: Text(
-                  index.toString().padLeft(2, '0'),
-                  style: GoogleFonts.manrope(color: colorScheme.onSurface),
-                ),
-              ),
-            ),
-          ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: selected
+              ? pal.primary
+              : Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: selected ? pal.primary : pal.line),
         ),
-      ],
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: _sans(context, 12, color: textColor, w: FontWeight.w500),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+}
+
+Future<void> _openScheduleForm(
+  BuildContext context,
+  ModeId modeId, {
+  ModeSchedule? existingSchedule,
+}) async {
+  final pal = _Pal.of(context);
+  final result = await showModalBottomSheet<_ScheduleFormResult>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (_) => _scaled(
+      context,
+      _ScheduleFormSheet(schedule: existingSchedule, pal: pal),
+    ),
+  );
+
+  if (result == null) return;
+
+  if (existingSchedule != null) {
+    await modeScheduleService.updateSchedule(
+      existingSchedule.copyWith(
+        name: result.name,
+        dates: result.dates,
+        repeatWeekly: result.repeatWeekly,
+        weekdays: result.weekdays,
+        startTimeMinutes: result.startTimeMinutes,
+        endTimeMinutes: result.endTimeMinutes,
+      ),
+    );
+    return;
+  }
+
+  final added = await modeScheduleService.addSchedule(
+    modeId: modeId,
+    name: result.name,
+    dates: result.dates,
+    repeatWeekly: result.repeatWeekly,
+    weekdays: result.weekdays,
+    startTimeMinutes: result.startTimeMinutes,
+    endTimeMinutes: result.endTimeMinutes,
+  );
+  if (!added && context.mounted) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(context.t.scheduleLimitMessage)));
   }
 }
 
@@ -290,129 +627,63 @@ class _ModeScheduleSection extends StatelessWidget {
 
   const _ModeScheduleSection({required this.modeId});
 
-  Future<void> _openScheduleForm(
-    BuildContext context, {
-    ModeSchedule? existingSchedule,
-  }) async {
-    final schedule = await showModalBottomSheet<_ScheduleFormResult>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        return _ScheduleFormSheet(modeId: modeId, schedule: existingSchedule);
-      },
-    );
-
-    if (schedule == null) return;
-
-    if (existingSchedule != null) {
-      await modeScheduleService.updateSchedule(
-        existingSchedule.copyWith(
-          weekdays: schedule.weekdays,
-          dates: schedule.dates,
-          repeatWeekly: schedule.repeatWeekly,
-          name: schedule.name,
-          startTimeMinutes: schedule.startTimeMinutes,
-          endTimeMinutes: schedule.endTimeMinutes,
-        ),
-      );
-      return;
-    }
-
-    final added = await modeScheduleService.addSchedule(
-      modeId: modeId,
-      name: schedule.name,
-      dates: schedule.dates,
-      repeatWeekly: schedule.repeatWeekly,
-      weekdays: schedule.weekdays,
-      startTimeMinutes: schedule.startTimeMinutes,
-      endTimeMinutes: schedule.endTimeMinutes,
-    );
-    if (!added && context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(context.t.scheduleLimitMessage)));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final pal = _Pal.of(context);
 
     return ListenableBuilder(
       listenable: Listenable.merge([modeScheduleService, timeFormatController]),
       builder: (context, _) {
         final schedules = modeScheduleService.schedulesFor(modeId);
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.t.plannedMode(
-                            context.t.modeName(modeId.value),
-                          ),
-                          style: GoogleFonts.cormorantGaramond(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        Text(
-                          context.t.chooseDaysAndTimeWindow,
-                          style: GoogleFonts.manrope(
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        Text(
-                          context.t.schedulesCount(
-                            schedules.length,
-                            ModeScheduleService.maxSchedulesPerMode,
-                          ),
-                          style: GoogleFonts.manrope(
-                            fontSize: 12,
-                            color: colorScheme.onSurface.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (schedules.length <
-                      ModeScheduleService.maxSchedulesPerMode)
-                    IconButton(
-                      onPressed: () => _openScheduleForm(context),
-                      color: colorScheme.primary,
-                      tooltip: context.t.addSchedule,
-                      icon: const Icon(Icons.add),
-                    ),
-                ],
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.t.plannedMode(context.t.modeName(modeId.value)),
+              style: _serif(context, 24, color: pal.text),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              context.t.chooseDaysAndTimeWindow,
+              style: _sans(context, 13, color: pal.muted),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              context.t.schedulesCount(
+                schedules.length,
+                ModeScheduleService.maxSchedulesPerMode,
               ),
-              const SizedBox(height: 16),
-              if (schedules.isEmpty)
-                Text(
+              style: _sans(context, 11, color: pal.muted),
+            ),
+            const SizedBox(height: 14),
+            if (schedules.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: pal.card,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
                   context.t.noSchedulesYet,
-                  style: GoogleFonts.manrope(color: colorScheme.onSurface),
-                )
-              else
-                ...schedules.map(
-                  (schedule) => _ScheduleTile(
+                  style: _sans(context, 13, color: pal.muted),
+                ),
+              )
+            else
+              for (final schedule in schedules)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _ScheduleTile(
                     schedule: schedule,
-                    onTap: () =>
-                        _openScheduleForm(context, existingSchedule: schedule),
+                    onTap: () => _openScheduleForm(
+                      context,
+                      modeId,
+                      existingSchedule: schedule,
+                    ),
                   ),
                 ),
-            ],
-          ),
+          ],
         );
       },
     );
@@ -427,66 +698,62 @@ class _ScheduleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final pal = _Pal.of(context);
+    final use24 = timeFormatController.value;
+    final when = schedule.repeatWeekly
+        ? _formatWeekdays(schedule.weekdays, context.t)
+        : _datesText(context.t, schedule.dates);
 
     return Material(
-      color: Colors.transparent,
+      color: pal.card,
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: BorderRadius.circular(14),
-          ),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 8, 14),
           child: Row(
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      schedule.name,
-                      style: GoogleFonts.manrope(
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
+                    if (schedule.name.isNotEmpty) ...[
+                      Text(
+                        schedule.name,
+                        style: _serif(context, 22, color: pal.text),
                       ),
+                      const SizedBox(height: 2),
+                    ],
+                    Text(
+                      when,
+                      style: _sans(context, 13, color: pal.muted, w: FontWeight.w600),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _formatWeekdays(schedule.weekdays, context.t),
-                      style: GoogleFonts.manrope(color: colorScheme.onSurface),
+                      '${formatScheduleTime(_minutesToTimeOfDay(schedule.startTimeMinutes), use24HourTime: use24)} - '
+                      '${formatScheduleTime(_minutesToTimeOfDay(schedule.endTimeMinutes), use24HourTime: use24)}',
+                      style: _serif(context, 20, color: pal.text),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${formatScheduleTime(_minutesToTimeOfDay(schedule.startTimeMinutes), use24HourTime: timeFormatController.value)} - '
-                      '${formatScheduleTime(_minutesToTimeOfDay(schedule.endTimeMinutes), use24HourTime: timeFormatController.value)}',
-                      style: GoogleFonts.manrope(color: colorScheme.onSurface),
-                    ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       context.t.tapToEdit,
-                      style: GoogleFonts.manrope(
-                        fontSize: 12,
-                        color: colorScheme.onSurface.withValues(alpha: 0.7),
-                      ),
+                      style: _sans(context, 11, color: pal.muted),
                     ),
                   ],
                 ),
               ),
               Switch(
                 value: schedule.enabled,
+                activeThumbColor: pal.onPrimary,
+                activeTrackColor: pal.primary,
                 onChanged: (enabled) {
                   modeScheduleService.setEnabled(schedule.id, enabled);
                 },
               ),
               IconButton(
-                onPressed: () {
-                  modeScheduleService.deleteSchedule(schedule.id);
-                },
-                icon: const Icon(Icons.delete_outline),
+                onPressed: () => modeScheduleService.deleteSchedule(schedule.id),
+                icon: Icon(Icons.delete_outline, color: pal.muted),
               ),
             ],
           ),
@@ -496,11 +763,74 @@ class _ScheduleTile extends StatelessWidget {
   }
 }
 
-class _ScheduleFormSheet extends StatefulWidget {
-  final ModeId modeId;
-  final ModeSchedule? schedule;
+/// Zelfde kaart als in Focus, maar zonder schakelaar en prullenbak.
+/// Wordt op het Today-scherm gebruikt, zodat beide schermen gelijk ogen.
+class ModeScheduleSummaryTile extends StatelessWidget {
+  final ModeSchedule schedule;
+  final VoidCallback onTap;
 
-  const _ScheduleFormSheet({required this.modeId, this.schedule});
+  const ModeScheduleSummaryTile({
+    super.key,
+    required this.schedule,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = _Pal.of(context);
+    final use24 = timeFormatController.value;
+    final when = schedule.repeatWeekly
+        ? _formatWeekdays(schedule.weekdays, context.t)
+        : _datesText(context.t, schedule.dates);
+
+    return Material(
+      color: pal.card,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 14, 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (schedule.name.isNotEmpty) ...[
+                      Text(
+                        schedule.name,
+                        style: _serif(context, 22, color: pal.text),
+                      ),
+                      const SizedBox(height: 2),
+                    ],
+                    Text(
+                      '${context.t.modeName(schedule.modeId.value)} · $when',
+                      style: _sans(context, 13, color: pal.muted, w: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${formatScheduleTime(_minutesToTimeOfDay(schedule.startTimeMinutes), use24HourTime: use24)} - '
+                      '${formatScheduleTime(_minutesToTimeOfDay(schedule.endTimeMinutes), use24HourTime: use24)}',
+                      style: _serif(context, 20, color: pal.text),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: pal.muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScheduleFormSheet extends StatefulWidget {
+  final ModeSchedule? schedule;
+  final _Pal pal;
+
+  const _ScheduleFormSheet({this.schedule, required this.pal});
 
   @override
   State<_ScheduleFormSheet> createState() => _ScheduleFormSheetState();
@@ -510,13 +840,10 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
   late Set<int> _weekdays;
   late Set<String> _dates;
   late bool _repeatWeekly;
-  late final TextEditingController _nameController;
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
-  int _weekPage = 1000;
   late DateTime _calendarDate;
-  late final PageController _weekController;
-  bool _calendarExpanded = false;
+  late final TextEditingController _nameController;
 
   @override
   void initState() {
@@ -527,8 +854,7 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     _nameController = TextEditingController(text: schedule?.name ?? '');
     _dates = schedule?.dates.toSet() ?? <String>{};
     _repeatWeekly = schedule?.repeatWeekly ?? true;
-    _calendarDate = DateTime.now();
-    _weekController = PageController(initialPage: _weekPage);
+    _calendarDate = now;
 
     if (schedule != null) {
       _weekdays = schedule.weekdays.toSet();
@@ -545,7 +871,6 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
   @override
   void dispose() {
     _nameController.dispose();
-    _weekController.dispose();
     super.dispose();
   }
 
@@ -555,12 +880,8 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
       title: context.t.startTime,
       initialTime: _startTime,
     );
-
     if (selected == null) return;
-
-    setState(() {
-      _startTime = selected;
-    });
+    setState(() => _startTime = selected);
   }
 
   Future<void> _pickEndTime() async {
@@ -569,170 +890,46 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
       title: context.t.endTime,
       initialTime: _endTime,
     );
-
     if (selected == null) return;
+    setState(() => _endTime = selected);
+  }
 
+  List<int> get _weekdayOrder {
+    final firstWeekday =
+        weekStartController.value ? DateTime.sunday : DateTime.monday;
+    return List.generate(7, (index) => (firstWeekday + index - 1) % 7 + 1);
+  }
+
+  void _toggleWeekday(int weekday) {
     setState(() {
-      _endTime = selected;
+      if (!_weekdays.remove(weekday)) _weekdays.add(weekday);
     });
   }
 
   void _toggleDate(DateTime date) {
     setState(() {
-      if (_repeatWeekly) {
-        final weekday = date.weekday;
-        if (_weekdays.contains(weekday)) {
-          _weekdays.remove(weekday);
-        } else {
-          _weekdays.add(weekday);
-        }
-      } else {
-        final key = _dateKey(date);
-        if (!_dates.remove(key)) _dates.add(key);
-      }
+      final key = _dateKey(date);
+      if (!_dates.remove(key)) _dates.add(key);
     });
-  }
-
-  DateTime _weekStartForPage(int page) {
-    final now = DateTime.now();
-    final firstWeekday = weekStartController.value
-        ? DateTime.sunday
-        : DateTime.monday;
-    final daysSinceWeekStart = (now.weekday - firstWeekday + 7) % 7;
-    final thisWeek = DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ).subtract(Duration(days: daysSinceWeekStart));
-    return thisWeek.add(Duration(days: (page - 1000) * 7));
-  }
-
-  List<int> get _weekdayOrder {
-    final firstWeekday = weekStartController.value
-        ? DateTime.sunday
-        : DateTime.monday;
-    return List.generate(7, (index) => (firstWeekday + index - 1) % 7 + 1);
-  }
-
-  String _calendarSummary() {
-    if (_dates.isEmpty) return context.t.chooseCalendarDates;
-
-    final grouped = <String, List<int>>{};
-    for (final value in _dates) {
-      final parts = value.split('-');
-      if (parts.length != 3) continue;
-
-      final year = int.tryParse(parts[0]);
-      final month = int.tryParse(parts[1]);
-      final day = int.tryParse(parts[2]);
-      if (year == null || month == null || day == null) continue;
-
-      grouped.putIfAbsent('$year-$month', () => []).add(day);
-    }
-
-    final groups = grouped.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-    final summary = groups
-        .map((entry) {
-          final parts = entry.key.split('-');
-          final year = int.parse(parts[0]);
-          final month = int.parse(parts[1]);
-          final days = [...entry.value]..sort();
-          return '${days.join(', ')} ${context.t.monthsShort[month - 1]} $year';
-        })
-        .join(' • ');
-
-    return '${context.t.chosenCalendarDates}: $summary';
-  }
-
-  Widget _calendarGrid(BuildContext context) {
-    final monthStart = DateTime(_calendarDate.year, _calendarDate.month, 1);
-    final firstWeekday = _weekdayOrder.first;
-    final leadingDays = (monthStart.weekday - firstWeekday + 7) % 7;
-    final daysInMonth = DateTime(
-      _calendarDate.year,
-      _calendarDate.month + 1,
-      0,
-    ).day;
-    final cells = <Widget>[];
-
-    for (var index = 0; index < leadingDays; index += 1) {
-      cells.add(const SizedBox.shrink());
-    }
-
-    for (var day = 1; day <= daysInMonth; day += 1) {
-      final date = DateTime(_calendarDate.year, _calendarDate.month, day);
-      final selected = _dates.contains(_dateKey(date));
-      final isToday = DateUtils.isSameDay(date, DateTime.now());
-      cells.add(
-        GestureDetector(
-          onTap: _repeatWeekly
-              ? null
-              : () => setState(() {
-                  final key = _dateKey(date);
-                  if (!_dates.remove(key)) _dates.add(key);
-                }),
-          child: Center(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 38,
-              height: 38,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: selected
-                    ? Theme.of(context).colorScheme.primary
-                    : isToday
-                    ? Theme.of(context).colorScheme.surface
-                    : Colors.transparent,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isToday
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.transparent,
-                ),
-              ),
-              child: Text(
-                '$day',
-                style: GoogleFonts.manrope(
-                  color: selected
-                      ? Theme.of(context).colorScheme.onPrimary
-                      : Theme.of(context).colorScheme.onSurface,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 7,
-      childAspectRatio: 1.2,
-      children: [
-        ..._weekdayOrder.map(
-          (weekday) => Center(
-            child: Text(
-              context.t.weekdayShort[weekday - 1],
-              style: GoogleFonts.manrope(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ),
-        ...cells,
-      ],
-    );
   }
 
   void _save() {
     final startTimeMinutes = _timeOfDayToMinutes(_startTime);
     final endTimeMinutes = _timeOfDayToMinutes(_endTime);
+    final name = _nameController.text.trim();
+
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Give your focus a name.')),
+      );
+      return;
+    }
 
     if ((_repeatWeekly && _weekdays.isEmpty) ||
         (!_repeatWeekly && _dates.isEmpty)) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(context.t.chooseAtLeastOneDay)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.t.chooseAtLeastOneDay)));
       return;
     }
 
@@ -746,7 +943,7 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     Navigator.pop(
       context,
       _ScheduleFormResult(
-        name: _nameController.text,
+        name: name,
         dates: _dates.toList()..sort(),
         repeatWeekly: _repeatWeekly,
         weekdays: _weekdays.toList()..sort(),
@@ -756,245 +953,278 @@ class _ScheduleFormSheetState extends State<_ScheduleFormSheet> {
     );
   }
 
+  Widget _timeTile(String label, TimeOfDay time, VoidCallback onTap) {
+    final pal = widget.pal;
+    return Expanded(
+      child: Material(
+        color: pal.card,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: _sans(context, 12, color: pal.muted)),
+                const SizedBox(height: 4),
+                Text(
+                  formatScheduleTime(
+                    time,
+                    use24HourTime: timeFormatController.value,
+                  ),
+                  style: _serif(context, 24, color: pal.text),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _weekdayCircles(_Pal pal) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        for (final weekday in _weekdayOrder)
+          GestureDetector(
+            onTap: () => _toggleWeekday(weekday),
+            child: Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _weekdays.contains(weekday)
+                    ? pal.primary
+                    : Colors.transparent,
+                border: Border.all(
+                  color: _weekdays.contains(weekday) ? pal.primary : pal.line,
+                ),
+              ),
+              child: Text(
+                context.t.weekdayShort[weekday - 1].characters.first
+                    .toUpperCase(),
+                style: _sans(
+                  context,
+                  12,
+                  color: _weekdays.contains(weekday)
+                      ? pal.onPrimary
+                      : pal.text,
+                  w: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _calendar(_Pal pal) {
+    final order = _weekdayOrder;
+    final monthStart = DateTime(_calendarDate.year, _calendarDate.month, 1);
+    final leading = (monthStart.weekday - order.first + 7) % 7;
+    final daysInMonth =
+        DateTime(_calendarDate.year, _calendarDate.month + 1, 0).day;
+
+    final cells = <Widget>[
+      for (var i = 0; i < leading; i++) const SizedBox.shrink(),
+      for (var day = 1; day <= daysInMonth; day++)
+        Builder(builder: (context) {
+          final date = DateTime(_calendarDate.year, _calendarDate.month, day);
+          final selected = _dates.contains(_dateKey(date));
+          final isToday = DateUtils.isSameDay(date, DateTime.now());
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _toggleDate(date),
+            child: Center(
+              child: Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? pal.primary : Colors.transparent,
+                  border: Border.all(
+                    color: selected || isToday
+                        ? pal.primary
+                        : Colors.transparent,
+                  ),
+                ),
+                child: Text(
+                  '$day',
+                  style: _serif(context, 18,
+                      color: selected ? pal.onPrimary : pal.text),
+                ),
+              ),
+            ),
+          );
+        }),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${context.t.months[_calendarDate.month - 1]} ${_calendarDate.year}',
+                style: _serif(context, 20, color: pal.text),
+              ),
+            ),
+            IconButton(
+              onPressed: () => setState(() {
+                _calendarDate =
+                    DateTime(_calendarDate.year, _calendarDate.month - 1, 1);
+              }),
+              icon: Icon(Icons.chevron_left, color: pal.muted),
+            ),
+            IconButton(
+              onPressed: () => setState(() {
+                _calendarDate =
+                    DateTime(_calendarDate.year, _calendarDate.month + 1, 1);
+              }),
+              icon: Icon(Icons.chevron_right, color: pal.muted),
+            ),
+          ],
+        ),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 7,
+          childAspectRatio: 1.15,
+          children: [
+            for (final weekday in order)
+              Center(
+                child: Text(
+                  context.t.weekdayShort[weekday - 1].characters.first
+                      .toUpperCase(),
+                  style: _sans(context, 11, color: pal.muted, w: FontWeight.w700),
+                ),
+              ),
+            ...cells,
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _dates.isEmpty
+              ? context.t.chooseCalendarDates
+              : '${context.t.chosenCalendarDates}: ${_datesText(context.t, _dates.toList())}',
+          style: _sans(context, 12, color: pal.muted),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final pal = widget.pal;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return ListenableBuilder(
       listenable: Listenable.merge([timeFormatController, weekStartController]),
       builder: (context, _) => SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, bottomInset + 20),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.schedule == null
-                      ? context.t.planMode(
-                          context.t.modeName(widget.modeId.value),
-                        )
-                      : context.t.editMode(
-                          context.t.modeName(widget.modeId.value),
-                        ),
-                  style: GoogleFonts.cormorantGaramond(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
+        top: false,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(20, 10, 20, bottomInset + 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: pal.line,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _nameController,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: InputDecoration(
-                    labelText: context.t.scheduleName,
-                    hintText: context.t.scheduleNameHint,
-                    prefixIcon: Icon(Icons.label_outline),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                widget.schedule == null
+                    ? context.t.planMode(context.t.modeName(ModeId.focus.value))
+                    : context.t.editMode(context.t.modeName(ModeId.focus.value)),
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                context.t.scheduleName,
+                style: _sans(context, 13, color: pal.muted, w: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _nameController,
+                textCapitalization: TextCapitalization.sentences,
+                maxLength: 30,
+                style: _sans(context, 15, color: pal.text),
+                decoration: InputDecoration(
+                  counterText: '',
+                  hintText: context.t.scheduleNameHint,
+                  hintStyle: _sans(context, 15, color: pal.muted),
+                  filled: true,
+                  fillColor: pal.card,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: BorderSide.none,
                   ),
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  context.t.scheduleDaysTitle,
-                  style: GoogleFonts.cormorantGaramond(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 78,
-                        child: PageView.builder(
-                          controller: _weekController,
-                          itemBuilder: (context, page) {
-                            final weekStart = _weekStartForPage(page);
-                            return Row(
-                              children: List.generate(7, (index) {
-                                final date = weekStart.add(
-                                  Duration(days: index),
-                                );
-                                final weekday = _weekdayOrder[index];
-                                final selected = _repeatWeekly
-                                    ? _weekdays.contains(weekday)
-                                    : _dates.contains(_dateKey(date));
-                                final isToday = DateUtils.isSameDay(
-                                  date,
-                                  DateTime.now(),
-                                );
-                                return Expanded(
-                                  child: GestureDetector(
-                                    onTap: () => _toggleDate(date),
-                                    child: Column(
-                                      children: [
-                                        Text(
-                                          context.t.weekdayShort[weekday - 1],
-                                          style: GoogleFonts.manrope(
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        AnimatedContainer(
-                                          duration: const Duration(
-                                            milliseconds: 150,
-                                          ),
-                                          width: 38,
-                                          height: 34,
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            color: selected
-                                                ? Theme.of(context)
-                                                      .colorScheme
-                                                      .primary
-                                                      .withValues(alpha: 0.18)
-                                                : Colors.transparent,
-                                            border: Border.all(
-                                              color: isToday
-                                                  ? Theme.of(context)
-                                                        .colorScheme
-                                                        .primary
-                                                  : Colors.transparent,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            '${date.day}',
-                                            style: GoogleFonts.manrope(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onSurface,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }),
-                            );
-                          },
-                          onPageChanged: (page) => _weekPage = page,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: context.t.chooseCalendarDates,
-                      onPressed: () => setState(() {
-                        _calendarExpanded = !_calendarExpanded;
-                      }),
-                      icon: Icon(
-                        _calendarExpanded
-                            ? Icons.keyboard_arrow_up
-                            : Icons.calendar_month_outlined,
-                      ),
-                    ),
-                  ],
-                ),
-                if (_calendarExpanded)
-                  IgnorePointer(
-                    ignoring: _repeatWeekly,
-                    child: Opacity(
-                      opacity: _repeatWeekly ? 0.45 : 1,
-                      child: Column(
-                        children: [
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              _calendarSummary(),
-                              style: GoogleFonts.manrope(fontSize: 13),
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${context.t.months[_calendarDate.month - 1]} ${_calendarDate.year}',
-                                  style: GoogleFonts.manrope(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () => setState(() {
-                                  _calendarDate = DateTime(
-                                    _calendarDate.year,
-                                    _calendarDate.month - 1,
-                                    1,
-                                  );
-                                }),
-                                icon: const Icon(Icons.chevron_left),
-                              ),
-                              IconButton(
-                                onPressed: () => setState(() {
-                                  _calendarDate = DateTime(
-                                    _calendarDate.year,
-                                    _calendarDate.month + 1,
-                                    1,
-                                  );
-                                }),
-                                icon: const Icon(Icons.chevron_right),
-                              ),
-                            ],
-                          ),
-                          _calendarGrid(context),
-                        ],
-                      ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                context.t.scheduleDaysTitle,
+                style: _sans(context, 13, color: pal.muted, w: FontWeight.w600),
+              ),
+              const SizedBox(height: 10),
+              if (_repeatWeekly) _weekdayCircles(pal) else _calendar(pal),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(context.t.repeatWeekly,
+                            style: _sans(context, 14, color: pal.text,
+                                w: FontWeight.w600)),
+                        Text(context.t.repeatWeeklyDescription,
+                            style: _sans(context, 11, color: pal.muted)),
+                      ],
                     ),
                   ),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: _repeatWeekly,
-                  title: Text(context.t.repeatWeekly),
-                  subtitle: Text(context.t.repeatWeeklyDescription),
-                  onChanged: (value) => setState(() {
-                    _repeatWeekly = value ?? true;
-                    if (_repeatWeekly) _dates.clear();
-                  }),
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.play_arrow_outlined),
-                  title: Text(context.t.from),
-                  subtitle: Text(
-                    formatScheduleTime(
-                      _startTime,
-                      use24HourTime: timeFormatController.value,
-                    ),
+                  Switch(
+                    value: _repeatWeekly,
+                    activeThumbColor: pal.onPrimary,
+                    activeTrackColor: pal.primary,
+                    onChanged: (value) => setState(() {
+                      _repeatWeekly = value;
+                      if (_repeatWeekly) _dates.clear();
+                    }),
                   ),
-                  onTap: _pickStartTime,
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.stop_outlined),
-                  title: Text(context.t.to),
-                  subtitle: Text(
-                    formatScheduleTime(
-                      _endTime,
-                      use24HourTime: timeFormatController.value,
-                    ),
-                  ),
-                  onTap: _pickEndTime,
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _save,
-                    child: Text(
-                      widget.schedule == null
-                          ? context.t.saveSchedule
-                          : context.t.updateSchedule,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _timeTile(context.t.from, _startTime, _pickStartTime),
+                  const SizedBox(width: 12),
+                  _timeTile(context.t.to, _endTime, _pickEndTime),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _PillButton(
+                label: widget.schedule == null
+                    ? context.t.saveSchedule
+                    : context.t.updateSchedule,
+                onTap: _save,
+              ),
+            ],
           ),
         ),
       ),
@@ -1025,6 +1255,29 @@ String _dateKey(DateTime date) =>
     '${date.month.toString().padLeft(2, '0')}-'
     '${date.day.toString().padLeft(2, '0')}';
 
+String _datesText(AppStrings t, List<String> dates) {
+  final grouped = <String, List<int>>{};
+  for (final value in dates) {
+    final parts = value.split('-');
+    if (parts.length != 3) continue;
+    final year = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final day = int.tryParse(parts[2]);
+    if (year == null || month == null || day == null) continue;
+    grouped.putIfAbsent('$year-$month', () => []).add(day);
+  }
+
+  final groups = grouped.entries.toList()
+    ..sort((a, b) => a.key.compareTo(b.key));
+  return groups.map((entry) {
+    final parts = entry.key.split('-');
+    final year = int.parse(parts[0]);
+    final month = int.parse(parts[1]);
+    final days = [...entry.value]..sort();
+    return '${days.join(', ')} ${t.monthsShort[month - 1]} $year';
+  }).join(' • ');
+}
+
 Future<TimeOfDay?> _showScheduleTimePicker({
   required BuildContext context,
   required String title,
@@ -1033,9 +1286,14 @@ Future<TimeOfDay?> _showScheduleTimePicker({
   return showModalBottomSheet<TimeOfDay>(
     context: context,
     isScrollControlled: true,
-    builder: (context) {
-      return _ScrollableTimePickerSheet(title: title, initialTime: initialTime);
-    },
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (sheetContext) => _scaled(
+      sheetContext,
+      _ScrollableTimePickerSheet(title: title, initialTime: initialTime),
+    ),
   );
 }
 
@@ -1055,232 +1313,128 @@ class _ScrollableTimePickerSheet extends StatefulWidget {
 
 class _ScrollableTimePickerSheetState
     extends State<_ScrollableTimePickerSheet> {
-  late int _hour24;
+  late int _hour; // 0-23 in 24-hour mode, 0-11 in 12-hour mode
   late int _minute;
   late bool _isPm;
-
-  late final FixedExtentScrollController _hourController;
-  late final FixedExtentScrollController _minuteController;
-  late final FixedExtentScrollController _periodController;
 
   @override
   void initState() {
     super.initState();
-
-    _hour24 = widget.initialTime.hour;
-    _minute = widget.initialTime.minute;
-    _isPm = _hour24 >= 12;
-
-    _hourController = FixedExtentScrollController(
-      initialItem: timeFormatController.value
-          ? _hour24
-          : (_hour24 % 12 == 0 ? 11 : (_hour24 % 12) - 1),
-    );
-    _minuteController = FixedExtentScrollController(initialItem: _minute);
-    _periodController = FixedExtentScrollController(initialItem: _isPm ? 1 : 0);
-    timeFormatController.addListener(_onFormatChanged);
-  }
-
-  void _onFormatChanged() {
-    if (!mounted) return;
-    final hourIndex = timeFormatController.value
-        ? _hour24
-        : (_hour24 % 12 == 0 ? 11 : (_hour24 % 12) - 1);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _hourController.jumpToItem(hourIndex);
-      _periodController.jumpToItem(_hour24 >= 12 ? 1 : 0);
-      setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _hourController.dispose();
-    _minuteController.dispose();
-    _periodController.dispose();
-    timeFormatController.removeListener(_onFormatChanged);
-
-    super.dispose();
-  }
-
-  Future<void> _openClockPicker() async {
-    final selected = await showTimePicker(
-      context: context,
-      initialTime: _selectedTime,
-      initialEntryMode: TimePickerEntryMode.dial,
-      switchToInputEntryModeIcon: const Icon(null),
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context)
-            .copyWith(alwaysUse24HourFormat: timeFormatController.value),
-        child: child!,
-      ),
-    );
-
-    if (!mounted || selected == null) return;
-
-    Navigator.pop(context, selected);
+    final t = widget.initialTime;
+    _minute = t.minute;
+    _isPm = t.hour >= 12;
+    _hour = timeFormatController.value ? t.hour : t.hour % 12;
   }
 
   TimeOfDay get _selectedTime {
-    return TimeOfDay(hour: _hour24, minute: _minute);
+    if (timeFormatController.value) {
+      return TimeOfDay(hour: _hour, minute: _minute);
+    }
+    return TimeOfDay(hour: _hour + (_isPm ? 12 : 0), minute: _minute);
+  }
+
+  Widget _periodChip(String label, bool pm, _Pal pal) {
+    final selected = _isPm == pm;
+    return GestureDetector(
+      onTap: () => setState(() => _isPm = pm),
+      child: Container(
+        width: 56,
+        height: 38,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? pal.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(19),
+          border: Border.all(color: selected ? pal.primary : pal.line),
+        ),
+        child: Text(
+          label,
+          style: _sans(context, 13,
+              color: selected ? pal.onPrimary : pal.text,
+              w: FontWeight.w600),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final pal = _Pal.of(context);
+    final use24 = timeFormatController.value;
+
     return SafeArea(
+      top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.title,
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: _openClockPicker,
-                  icon: const Icon(Icons.schedule),
-                  label: Text(context.t.clock),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _ScheduleTimePickerColumn(
-                  label: context.t.hour,
-                  controller: _hourController,
-                  itemCount: timeFormatController.value ? 24 : 12,
-                  itemBuilder: (index) => timeFormatController.value
-                      ? index.toString().padLeft(2, '0')
-                      : '${index + 1}',
-                  onChanged: (index) {
-                    setState(() {
-                      if (timeFormatController.value) {
-                        _hour24 = index % 24;
-                      } else {
-                        final hour = (index % 12) + 1;
-                        _hour24 = _isPm
-                            ? (hour == 12 ? 12 : hour + 12)
-                            : (hour == 12 ? 0 : hour);
-                      }
-                    });
-                  },
-                ),
-                _ScheduleTimePickerColumn(
-                  label: context.t.minute,
-                  controller: _minuteController,
-                  itemCount: 60,
-                  itemBuilder: (index) => index.toString().padLeft(2, '0'),
-                  onChanged: (index) {
-                    setState(() {
-                      _minute = index % 60;
-                    });
-                  },
-                ),
-                if (!timeFormatController.value)
-                  _ScheduleTimePickerColumn(
-                    label: context.t.period,
-                    controller: _periodController,
-                    itemCount: 2,
-                    looping: false,
-                    itemBuilder: (index) => index == 0 ? 'AM' : 'PM',
-                    onChanged: (index) {
-                      setState(() {
-                        _isPm = index == 1;
-                        final hour = _hour24 % 12;
-                        _hour24 = _isPm
-                            ? (hour == 0 ? 12 : hour + 12)
-                            : (hour == 0 ? 0 : hour);
-                      });
-                    },
-                  ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () {
-                  Navigator.pop(context, _selectedTime);
-                },
-                child: Text(
-                  context.t.useTime(
-                    formatScheduleTime(
-                      _selectedTime,
-                      use24HourTime: timeFormatController.value,
-                    ),
-                  ),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: pal.line,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
+            ),
+            const SizedBox(height: 12),
+            Text(widget.title,
+                style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(12, 16, 12, 18),
+              decoration: BoxDecoration(
+                color: pal.hero,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _TimeStepper(
+                    value: _hour,
+                    max: use24 ? 23 : 11,
+                    label: context.t.hour.toLowerCase(),
+                    format: use24
+                        ? null
+                        : (v) => (v == 0 ? 12 : v).toString().padLeft(2, '0'),
+                    onChanged: (v) => setState(() => _hour = v),
+                  ),
+                  const _Colon(),
+                  _TimeStepper(
+                    value: _minute,
+                    max: 59,
+                    label: context.t.minute.toLowerCase(),
+                    onChanged: (v) => setState(() => _minute = v),
+                  ),
+                  if (!use24) ...[
+                    const SizedBox(width: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 50),
+                      child: Column(
+                        children: [
+                          _periodChip('AM', false, pal),
+                          const SizedBox(height: 8),
+                          _periodChip('PM', true, pal),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _PillButton(
+              label:
+                  'Save ${formatScheduleTime(_selectedTime, use24HourTime: use24)}',
+              onTap: () => Navigator.pop(context, _selectedTime),
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ScheduleTimePickerColumn extends StatelessWidget {
-  final String label;
-  final FixedExtentScrollController controller;
-  final int itemCount;
-  final bool looping;
-  final String Function(int index) itemBuilder;
-  final ValueChanged<int> onChanged;
-
-  const _ScheduleTimePickerColumn({
-    required this.label,
-    required this.controller,
-    required this.itemCount,
-    this.looping = true,
-    required this.itemBuilder,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Column(
-      children: [
-        Text(label, style: GoogleFonts.manrope(color: colorScheme.onSurface)),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: 86,
-          height: 150,
-          child: CupertinoPicker(
-            scrollController: controller,
-            itemExtent: 40,
-            looping: looping,
-            onSelectedItemChanged: onChanged,
-            selectionOverlay: DecoratedBox(
-              decoration: BoxDecoration(
-                color: colorScheme.primary.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            children: List.generate(itemCount, (index) {
-              return Center(
-                child: Text(
-                  itemBuilder(index),
-                  style: GoogleFonts.manrope(color: colorScheme.onSurface),
-                ),
-              );
-            }),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1318,101 +1472,6 @@ bool _sameWeekdays(List<int> weekdays, List<int> expected) {
   return true;
 }
 
-class _TimerPresets extends StatelessWidget {
-  final FixedExtentScrollController hoursController;
-  final FixedExtentScrollController minutesController;
-  final FixedExtentScrollController secondsController;
-
-  const _TimerPresets({
-    required this.hoursController,
-    required this.minutesController,
-    required this.secondsController,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final timer = FocusTimerService.instance;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      spacing: 5,
-      children: [
-        _PresetButton(
-          label: '5 min',
-          onTap: () {
-            timer.setDuration(hours: 0, minutes: 5, seconds: 0);
-            _movePickers(hours: 0, minutes: 5, seconds: 0);
-          },
-        ),
-        _PresetButton(
-          label: '15 min',
-          onTap: () {
-            timer.setDuration(hours: 0, minutes: 15, seconds: 0);
-            _movePickers(hours: 0, minutes: 15, seconds: 0);
-          },
-        ),
-        _PresetButton(
-          label: '30 min',
-          onTap: () {
-            timer.setDuration(hours: 0, minutes: 30, seconds: 0);
-            _movePickers(hours: 0, minutes: 30, seconds: 0);
-          },
-        ),
-        _PresetButton(label: '+', onTap: () {}),
-      ],
-    );
-  }
-
-  void _movePickers({
-    required int hours,
-    required int minutes,
-    required int seconds,
-  }) {
-    hoursController.animateToItem(
-      hours,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-
-    minutesController.animateToItem(
-      minutes,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-
-    secondsController.animateToItem(
-      seconds,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
-}
-
-class _PresetButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-
-  const _PresetButton({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return TextButton(
-      onPressed: onTap,
-      style: TextButton.styleFrom(
-        backgroundColor: colorScheme.surface,
-        foregroundColor: colorScheme.onSurface,
-      ),
-      child: Text(
-        label,
-        textAlign: TextAlign.center,
-        style: GoogleFonts.manrope(color: colorScheme.onSurface),
-      ),
-    );
-  }
-}
-
 class _ActiveTimerCard extends StatelessWidget {
   const _ActiveTimerCard();
 
@@ -1423,73 +1482,76 @@ class _ActiveTimerCard extends StatelessWidget {
     return ListenableBuilder(
       listenable: timer,
       builder: (context, _) {
-        final theme = Theme.of(context);
+        final pal = _Pal.of(context);
+        final t = context.t;
 
-        final progress = timer.selectedDuration.inMilliseconds == 0
-            ? 0.0
-            : timer.remaining.inMilliseconds /
-                  timer.selectedDuration.inMilliseconds;
+        final totalMs = timer.selectedDuration.inMilliseconds;
+        final progress =
+            totalMs == 0 ? 0.0 : timer.remaining.inMilliseconds / totalMs;
 
-        return Container(
+        return SizedBox(
           width: double.infinity,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: theme.cardTheme.color,
-            borderRadius: BorderRadius.circular(16),
-          ),
           child: Column(
-            children: [
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  GradientCircularProgressIndicator(
-                    value: progress.clamp(0.0, 1.0),
-                    gradient: LinearGradient(
-                      colors: [
-                        theme.colorScheme.primary,
-                        theme.colorScheme.primary,
-                      ],
-                    ),
-                    backgroundColor: theme.colorScheme.onSurface.withValues(
-                      alpha: 0.12,
-                    ),
-                    size: 200,
-                  ),
-
-                  Column(
+          children: [
+            const SizedBox(height: 12),
+            SizedBox(
+              width: 290,
+              height: 290,
+              child: CustomPaint(
+                painter: _TimerRingPainter(
+                  progress: progress.clamp(0.0, 1.0),
+                  color: pal.primary,
+                  track: pal.line,
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        timer.hasEnded
-                            ? context.t.done
-                            : formatRemaining(timer.remaining),
-                        style: GoogleFonts.cormorantGaramond(fontSize: 30),
+                        timer.hasEnded ? t.done : _clockText(timer.remaining),
+                        style: _serif(context, 54, color: pal.text),
                       ),
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Icon(Icons.alarm),
-                          Text(
-                            formatEndTime(DateTime.now().add(timer.remaining)),
-                            style: GoogleFonts.manrope(fontSize: 20),
-                          ),
-                        ],
-                      ),
+                      if (!timer.hasEnded) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          timer.isPaused
+                              ? 'Paused'
+                              : 'Ends at ${formatEndTime(DateTime.now().add(timer.remaining))}',
+                          style: _sans(context, 13, color: pal.muted),
+                        ),
+                      ],
                     ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 48),
+            if (timer.hasEnded)
+              Text(
+                t.timerEnded,
+                textAlign: TextAlign.center,
+                style: _serif(context, 22, color: pal.text),
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: _PillButton(
+                      label: t.cancel,
+                      filled: false,
+                      onTap: timer.cancelTimer,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _PillButton(
+                      label: timer.isPaused ? t.resume : t.pause,
+                      onTap: timer.isPaused ? timer.resumeTimer : timer.pauseTimer,
+                    ),
                   ),
                 ],
               ),
-
-              const SizedBox(height: 32),
-              timer.hasEnded
-                  ? Text(
-                      context.t.timerEnded,
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 20,
-                        // color: const Color(0xFF4E3B31),
-                      ),
-                    )
-                  : _ActivePausedTimer(),
-            ],
+          ],
           ),
         );
       },
@@ -1497,112 +1559,53 @@ class _ActiveTimerCard extends StatelessWidget {
   }
 }
 
-class _ActivePausedTimer extends StatelessWidget {
-  const _ActivePausedTimer();
+class _TimerRingPainter extends CustomPainter {
+  final double progress;
+  final Color color, track;
+  const _TimerRingPainter(
+      {required this.progress, required this.color, required this.track});
 
   @override
-  Widget build(BuildContext context) {
-    final timer = FocusTimerService.instance;
-    return timer.isPaused
-        ? const _PausedTimerControls()
-        : const _ActiveTimerControls();
-  }
-}
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = (size.shortestSide / 2) - 4;
+    final rect = Rect.fromCircle(center: center, radius: radius);
 
-class _ActiveTimerControls extends StatelessWidget {
-  const _ActiveTimerControls();
-
-  @override
-  Widget build(BuildContext context) {
-    final timer = FocusTimerService.instance;
-    final theme = Theme.of(context);
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        ElevatedButton(
-          onPressed: timer.cancelTimer,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: theme.colorScheme.surface,
-            foregroundColor: theme.colorScheme.onSurface,
-          ),
-          child: Text(
-            context.t.cancel,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.cormorantGaramond(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.normal,
-              fontSize: 20,
-            ),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: timer.pauseTimer,
-          child: Text(
-            context.t.pause,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.cormorantGaramond(
-              color: theme.colorScheme.onPrimary,
-              fontWeight: FontWeight.normal,
-              fontSize: 20,
-            ),
-          ),
-        ),
-      ],
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5
+        ..color = track,
+    );
+    canvas.drawArc(
+      rect,
+      -1.5707963267948966,
+      6.283185307179586 * progress,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.round
+        ..color = color,
     );
   }
-}
-
-class _PausedTimerControls extends StatelessWidget {
-  const _PausedTimerControls();
 
   @override
-  Widget build(BuildContext context) {
-    final timer = FocusTimerService.instance;
-    final theme = Theme.of(context);
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        ElevatedButton(
-          onPressed: timer.cancelTimer,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: theme.colorScheme.surface,
-            foregroundColor: theme.colorScheme.onSurface,
-          ),
-          child: Text(
-            context.t.cancel,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.cormorantGaramond(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.normal,
-              fontSize: 20,
-            ),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: timer.resumeTimer,
-          child: Text(
-            context.t.resume,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.cormorantGaramond(
-              color: theme.colorScheme.onPrimary,
-              fontWeight: FontWeight.normal,
-              fontSize: 20,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  bool shouldRepaint(covariant _TimerRingPainter old) =>
+      old.progress != progress || old.color != color || old.track != track;
 }
 
-// String formatDuration(Duration duration) {
-//   String hours = duration.inHours.toString().padLeft(2, '0');
-//   String minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-//   String seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-//   return "$hours:$minutes:$seconds";
-// }
+String _clockText(Duration duration) {
+  final totalSeconds = (duration.inMilliseconds / 1000).ceil();
+  final hours = totalSeconds ~/ 3600;
+  final minutes = (totalSeconds % 3600) ~/ 60;
+  final seconds = totalSeconds % 60;
+  final mm = minutes.toString().padLeft(2, '0');
+  final ss = seconds.toString().padLeft(2, '0');
+  return hours > 0 ? '$hours:$mm:$ss' : '$mm:$ss';
+}
 
 String formatRemaining(Duration duration) {
   final totalSeconds = (duration.inMilliseconds / 1000).ceil();
@@ -1621,4 +1624,129 @@ String formatEndTime(DateTime time) {
   String minutes = time.minute.toString().padLeft(2, '0');
 
   return '$hours:$minutes';
+}
+
+class _FocusHistorySection extends StatelessWidget {
+  const _FocusHistorySection();
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
+
+  String _when(DateTime d) {
+    final now = DateTime.now();
+    final time = formatEndTime(d);
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(d.year, d.month, d.day);
+    final diff = today.difference(day).inDays;
+    if (diff == 0) return 'Today, $time';
+    if (diff == 1) return 'Yesterday, $time';
+    return '${d.day} ${_months[d.month - 1]}, $time';
+  }
+
+  String _length(int seconds) {
+    final m = seconds ~/ 60;
+    final h = m ~/ 60;
+    if (h > 0) return '$h h ${m % 60} min';
+    if (m > 0) return '$m min';
+    return '$seconds sec';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = _Pal.of(context);
+
+    return ListenableBuilder(
+      listenable: focusHistoryService,
+      builder: (context, _) {
+        final all = focusHistoryService.sessions;
+        final items = all.take(5).toList();
+
+        final now = DateTime.now();
+        final todaySeconds = all
+            .where((s) =>
+                s.endedAt.year == now.year &&
+                s.endedAt.month == now.month &&
+                s.endedAt.day == now.day)
+            .fold<int>(0, (sum, s) => sum + s.seconds);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Focus History',
+                style: _serif(context, 24, color: pal.text)),
+            const SizedBox(height: 2),
+            Text(
+              all.isEmpty
+                  ? 'Your finished sessions will show up here.'
+                  : 'Focused today: ${_length(todaySeconds)}',
+              style: _sans(context, 13, color: pal.muted),
+            ),
+            const SizedBox(height: 14),
+            if (items.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: pal.card,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text('No focus sessions yet.',
+                    style: _sans(context, 13, color: pal.muted)),
+              )
+            else
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: pal.card,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < items.length; i++) ...[
+                      if (i > 0)
+                        Divider(height: 1, indent: 18, endIndent: 18, color: pal.line),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 14),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(_length(items[i].seconds),
+                                      style: _serif(context, 22, color: pal.text)),
+                                  const SizedBox(height: 2),
+                                  Text(_when(items[i].endedAt),
+                                      style: _sans(context, 12, color: pal.muted)),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              items[i].completed
+                                  ? Icons.check
+                                  : Icons.timelapse,
+                              size: 18,
+                              color: items[i].completed ? pal.primary : pal.muted,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              items[i].completed ? 'Completed' : 'Stopped early',
+                              style: _sans(context, 12,
+                                  color: items[i].completed ? pal.primary : pal.muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }

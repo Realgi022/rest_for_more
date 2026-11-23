@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:rest_for_more/screens/modes/mode_moment_detail.dart'
+    show ModeScheduleSummaryTile, formatEndTime, formatRemaining;
+import 'package:rest_for_more/services/timer_service.dart';
 
 import '../localization/app_language.dart';
 import '../models/mode_schedule.dart';
@@ -6,9 +10,6 @@ import '../services/mode_schedule_service.dart';
 import '../controllers/time_format_controller.dart';
 import '../theme/app_spacing.dart';
 import 'progress.dart' show TodayActivity;
-
-TimeOfDay _scheduleTime(int minutes) =>
-    TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
 
 class TodayScreen extends StatelessWidget {
   const TodayScreen({super.key});
@@ -79,6 +80,7 @@ class TodayScreen extends StatelessWidget {
                           ?.copyWith(color: muted),
                     ),
                     const SizedBox(height: 20),
+                    const _ActiveFocusCard(),
                     const TodayActivity(),
                     if (schedules.isNotEmpty) ...[
                       const SizedBox(height: 24),
@@ -122,54 +124,96 @@ class _TodayScheduleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return InkWell(
+    return ModeScheduleSummaryTile(
+      schedule: schedule,
       onTap: () => _openDetails(context),
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.secondary.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
+    );
+  }
+}
+
+class _ActiveFocusCard extends StatelessWidget {
+  const _ActiveFocusCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final timer = FocusTimerService.instance;
+
+    return ListenableBuilder(
+      listenable: timer,
+      builder: (context, _) {
+        if (!timer.timerStarted) return const SizedBox.shrink();
+
+        final theme = Theme.of(context);
+        final scheme = theme.colorScheme;
+        final muted = scheme.onSurface.withValues(alpha: 0.6);
+        final ended = timer.hasEnded;
+
+        final status = ended
+            ? context.t.timerEnded
+            : timer.isPaused
+                ? 'Paused'
+                : 'Ends at ${formatEndTime(DateTime.now().add(timer.remaining))}';
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Material(
+            color: theme.cardTheme.color ?? scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => context.go('/modes/focus'),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: scheme.primary, width: 2),
+                      ),
+                      child: Icon(
+                        timer.isPaused ? Icons.pause : Icons.timer_outlined,
+                        color: scheme.primary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            context.t.focus,
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(color: muted),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            ended
+                                ? context.t.done
+                                : formatRemaining(timer.remaining),
+                            style: theme.textTheme.headlineMedium
+                                ?.copyWith(fontSize: 28),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            status,
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right, color: muted),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.18),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.schedule, color: theme.colorScheme.primary),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(schedule.name, style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(
-                    context.t.modeName(schedule.modeId.value),
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${formatScheduleTime(_scheduleTime(schedule.startTimeMinutes), use24HourTime: timeFormatController.value)} - '
-                    '${formatScheduleTime(_scheduleTime(schedule.endTimeMinutes), use24HourTime: timeFormatController.value)}',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.open_in_new, size: 20),
-          ],
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -210,6 +254,7 @@ class _TodayScheduleDetails extends StatelessWidget {
               title: Text(
                 '${formatScheduleTime(start, use24HourTime: timeFormatController.value)} - '
                 '${formatScheduleTime(end, use24HourTime: timeFormatController.value)}',
+                style: theme.textTheme.headlineMedium?.copyWith(fontSize: 26),
               ),
             ),
             const Divider(),

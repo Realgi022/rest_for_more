@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -38,16 +37,27 @@ DateTime? _momentPausedAt;
 DateTime _now() => _momentPausedAt ?? DateTime.now();
 
 Future<MomentSession?> _activeMoment() async {
-  final m = await PlanService.activeMoment();
+  try {
+    final m = await PlanService.activeMoment();
 
-  if (m == null) {
+    if (m == null) {
+      _momentPausedAt = null;
+      await MomentRepository.savePausedAt(null);
+      return null;
+    }
+
+    _momentPausedAt = await MomentRepository.loadPausedAt();
+    return m;
+  } catch (e, st) {
+    // Bozuk eski kayıt: hatayı yaz, kaydı temizle, uygulama açılsın
+    debugPrint('MOMENT ERROR: $e\n$st');
+    try {
+      await PlanService.clearMoment();
+      await MomentRepository.savePausedAt(null);
+    } catch (_) {}
     _momentPausedAt = null;
-    await MomentRepository.savePausedAt(null);
     return null;
   }
-
-  _momentPausedAt = await MomentRepository.loadPausedAt();
-  return m;
 }
 
 Future<void> _setPaused(DateTime? at) async {
@@ -274,9 +284,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,93 +303,122 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 style: _sans(ctx, 12, color: pal.muted),
               ),
               const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (var d = 1; d <= plan.total; d++)
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        setState(() => _selected = d);
-                      },
-                      child: Container(
-                        width: 44,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: plan.completed.contains(d)
-                              ? pal.primary
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: d == plan.currentDay
-                                ? pal.primary
-                                : pal.line,
-                            width: 1.2,
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '$d',
-                              style: _serif(
-                                ctx,
-                                18,
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: pal.card,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: LayoutBuilder(
+                  builder: (context, box) {
+                    const gap = 8.0;
+                    final tileW = (box.maxWidth - gap * 6) / 7;
+                    return Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      children: [
+                        for (var d = 1; d <= plan.total; d++)
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              setState(() => _selected = d);
+                            },
+                            child: Container(
+                              width: tileW,
+                              height: 52,
+                              decoration: BoxDecoration(
                                 color: plan.completed.contains(d)
-                                    ? pal.onPrimary
-                                    : (d > plan.currentDay
-                                          ? pal.muted
-                                          : pal.text),
+                                    ? pal.primary
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: d == plan.currentDay
+                                      ? pal.primary
+                                      : pal.line,
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    '$d',
+                                    style: _serif(
+                                      ctx,
+                                      18,
+                                      color: plan.completed.contains(d)
+                                          ? pal.onPrimary
+                                          : (d > plan.currentDay
+                                                ? pal.muted
+                                                : pal.text),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    height: 12,
+                                    child: plan.completed.contains(d)
+                                        ? Icon(
+                                            Icons.check,
+                                            size: 11,
+                                            color: pal.onPrimary,
+                                          )
+                                        : (d > plan.currentDay
+                                              ? Icon(
+                                                  Icons.lock_outline,
+                                                  size: 10,
+                                                  color: pal.muted,
+                                                )
+                                              : null),
+                                  ),
+                                ],
                               ),
                             ),
-                            SizedBox(
-                              height: 12,
-                              child: plan.completed.contains(d)
-                                  ? Icon(
-                                      Icons.check,
-                                      size: 11,
-                                      color: pal.onPrimary,
-                                    )
-                                  : (d > plan.currentDay
-                                        ? Icon(
-                                            Icons.lock_outline,
-                                            size: 10,
-                                            color: pal.muted,
-                                          )
-                                        : null),
-                            ),
-                          ],
-                        ),
-                      ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: pal.card,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    _SheetAction(
+                      icon: Icons.science_outlined,
+                      label: ctx.t.demoProgress,
+                      color: pal.muted,
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        await PlanService.debugSeedProgress();
+                        setState(() => _selected = null);
+                        await _load();
+                        _planChanged();
+                      },
                     ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                style: TextButton.styleFrom(foregroundColor: pal.muted),
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  await PlanService.debugSeedProgress();
-                  setState(() => _selected = null);
-                  await _load();
-                  _planChanged();
-                },
-                child: Text(ctx.t.demoProgress),
-              ),
-              TextButton(
-                style: TextButton.styleFrom(foregroundColor: pal.primary),
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  // Plan opnieuw: vandaag is dag 1, alles gewist
-                  await PlanService.reset();
-                  await PlanRepository.clearPartialMinutes();
-                  await PlanService.markIntroSeen();
-                  setState(() => _selected = null);
-                  await _load();
-                  _planChanged();
-                },
-                child: const Text('Restart plan: today is day 1'),
+                    Divider(height: 1, color: pal.line),
+                    _SheetAction(
+                      icon: Icons.restart_alt,
+                      label: 'Restart plan: today is day 1',
+                      color: pal.primary,
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        // Plan opnieuw: vandaag is dag 1, alles gewist
+                        await PlanService.reset();
+                        await PlanRepository.clearPartialMinutes();
+                        await PlanService.markIntroSeen();
+                        setState(() => _selected = null);
+                        await _load();
+                        _planChanged();
+                      },
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -1086,7 +1127,7 @@ class _TodayCard extends StatelessWidget {
     final m = await showModalBottomSheet<int>(
       context: context,
       showDragHandle: true,
-      backgroundColor: pal.hero,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       builder: (ctx) => _GoalSheet(pal: pal, minutes: minutes),
     );
     if (m != null) onGoal(m);
@@ -1312,8 +1353,41 @@ class _TodayCard extends StatelessWidget {
   }
 }
 
-/// Kendi süreni seç: alarm kurar gibi saat + dakika tekerlekleri.
-/// En az 15 dk, en çok 3 saat; dakikalar 5'er 5'er.
+class _SheetAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _SheetAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: _sans(context, 13, color: color, w: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _GoalSheet extends StatefulWidget {
   final _Pal pal;
   final int minutes;
@@ -1326,135 +1400,83 @@ class _GoalSheet extends StatefulWidget {
 }
 
 class _GoalSheetState extends State<_GoalSheet> {
-  late int _h; // saat 0-3
-  late int _m; // dakika sırası: 0 = 00 ... 11 = 55
-  late final FixedExtentScrollController _hc;
-  late final FixedExtentScrollController _mc;
-
-  int get _total => _h * 60 + _m * 5;
-
-  void _setFrom(int total) {
-    final c = total.clamp(_GoalSheet.minMin, _GoalSheet.maxMin);
-    _h = c ~/ 60;
-    _m = (c % 60) ~/ 5;
-  }
+  late int _total;
 
   @override
   void initState() {
     super.initState();
-    _setFrom(widget.minutes);
-    _hc = FixedExtentScrollController(initialItem: _h);
-    _mc = FixedExtentScrollController(initialItem: _m);
+    _total = widget.minutes.clamp(_GoalSheet.minMin, _GoalSheet.maxMin).toInt();
   }
 
-  @override
-  void dispose() {
-    _hc.dispose();
-    _mc.dispose();
-    super.dispose();
-  }
-
-  // Tekerlekler durunca sınır dışıysa en yakın geçerli süreye getir.
-  void _settle() {
-    final c = _total.clamp(_GoalSheet.minMin, _GoalSheet.maxMin);
-    if (c != _total) {
-      _setFrom(c);
-      _hc.animateToItem(
-        _h,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-      );
-      _mc.animateToItem(
-        _m,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-      );
-    }
-    setState(() {});
-  }
-
-  Widget _wheel(
-    FixedExtentScrollController c,
-    int count,
-    String Function(int) text,
-    ValueChanged<int> onChange,
-  ) {
-    final pal = widget.pal;
-    return Expanded(
-      child: CupertinoPicker(
-        scrollController: c,
-        itemExtent: 38,
-        backgroundColor: Colors.transparent,
-        selectionOverlay: Container(
-          decoration: BoxDecoration(
-            color: pal.primary.withAlpha(30),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: pal.line),
-          ),
-        ),
-        onSelectedItemChanged: onChange,
-        children: [
-          for (var i = 0; i < count; i++)
-            Center(
-              child: Text(text(i), style: _serif(context, 22, color: pal.text)),
-            ),
-        ],
-      ),
-    );
+  void _change(int by) {
+    setState(() {
+      _total = (_total + by).clamp(_GoalSheet.minMin, _GoalSheet.maxMin).toInt();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final pal = widget.pal;
+    final t = context.t;
+
     return SafeArea(
+      top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              context.t.setOwnTime,
-              style: _serif(context, 24, color: pal.text),
-            ),
+            Text(t.setOwnTime, style: _serif(context, 26, color: pal.text)),
             const SizedBox(height: 4),
             Text(
-              context.t.customTimeRange,
-              style: _sans(context, 11, color: pal.muted),
+              t.customTimeRange,
+              style: _sans(context, 12, color: pal.muted),
             ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 150,
-              child: NotificationListener<ScrollEndNotification>(
-                onNotification: (_) {
-                  _settle();
-                  return false;
-                },
-                child: Row(
-                  children: [
-                    _wheel(
-                      _hc,
-                      4,
-                      (i) => context.t.shortHours(i),
-                      (i) => _h = i,
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+              decoration: BoxDecoration(
+                color: pal.hero,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _GoalStepper(
+                    text: (_total ~/ 60).toString().padLeft(2, '0'),
+                    label: t.hours.toLowerCase(),
+                    onStep: (by) => _change(by * 60),
+                    canUp: _total + 60 <= _GoalSheet.maxMin,
+                    canDown: _total - 60 >= _GoalSheet.minMin,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 52),
+                    child: Text(
+                      ':',
+                      style: _serif(context, 34, color: pal.muted),
                     ),
-                    _wheel(
-                      _mc,
-                      12,
-                      (i) => '${(i * 5).toString().padLeft(2, '0')} min',
-                      (i) => _m = i,
-                    ),
-                  ],
-                ),
+                  ),
+                  _GoalStepper(
+                    text: (_total % 60).toString().padLeft(2, '0'),
+                    label: t.minutesLabel.toLowerCase(),
+                    onStep: (by) => _change(by * 5),
+                    canUp: _total + 5 <= _GoalSheet.maxMin,
+                    canDown: _total - 5 >= _GoalSheet.minMin,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: TextButton(
                     style: TextButton.styleFrom(foregroundColor: pal.muted),
                     onPressed: () => Navigator.pop(context),
-                    child: Text(context.t.cancel),
+                    child: Text(t.cancel),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1462,22 +1484,94 @@ class _GoalSheetState extends State<_GoalSheet> {
                   flex: 2,
                   child: _PrimaryButton(
                     pal: pal,
-                    label: context.t.saveDuration(
-                      context.t.shortDuration(
-                        _total.clamp(_GoalSheet.minMin, _GoalSheet.maxMin),
-                      ),
-                    ),
+                    label: t.saveDuration(t.shortDuration(_total)),
                     icon: Icons.check,
-                    onTap: () => Navigator.pop(
-                      context,
-                      _total.clamp(_GoalSheet.minMin, _GoalSheet.maxMin),
-                    ),
+                    onTap: () => Navigator.pop(context, _total),
                   ),
                 ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Getal met pijltjes erboven en eronder, zoals op het Focus-scherm.
+/// Tikken op een pijltje of omhoog/omlaag slepen op het getal verandert de waarde.
+class _GoalStepper extends StatefulWidget {
+  final String text, label;
+  final ValueChanged<int> onStep;
+  final bool canUp, canDown;
+  const _GoalStepper({
+    required this.text,
+    required this.label,
+    required this.onStep,
+    required this.canUp,
+    required this.canDown,
+  });
+
+  @override
+  State<_GoalStepper> createState() => _GoalStepperState();
+}
+
+class _GoalStepperState extends State<_GoalStepper> {
+  static const double _stepPx = 22;
+  double _drag = 0;
+
+  void _onDrag(DragUpdateDetails d) {
+    _drag += d.delta.dy;
+    while (_drag <= -_stepPx) {
+      _drag += _stepPx;
+      widget.onStep(1);
+    }
+    while (_drag >= _stepPx) {
+      _drag -= _stepPx;
+      widget.onStep(-1);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = _Pal.of(context);
+
+    Widget chevron(IconData icon, int by, bool enabled) => InkResponse(
+      onTap: enabled ? () => widget.onStep(by) : null,
+      radius: 22,
+      child: SizedBox(
+        width: 56,
+        height: 36,
+        child: Icon(
+          icon,
+          size: 24,
+          color: enabled ? pal.muted : pal.muted.withAlpha(70),
+        ),
+      ),
+    );
+
+    return SizedBox(
+      width: 92,
+      child: Column(
+        children: [
+          chevron(Icons.keyboard_arrow_up, 1, widget.canUp),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onVerticalDragUpdate: _onDrag,
+            onVerticalDragEnd: (_) => _drag = 0,
+            child: SizedBox(
+              height: 74,
+              child: Center(
+                child: Text(
+                  widget.text,
+                  style: _serif(context, 46, color: pal.text).copyWith(height: 1.4),
+                ),
+              ),
+            ),
+          ),
+          Text(widget.label, style: _sans(context, 12, color: pal.muted)),
+          chevron(Icons.keyboard_arrow_down, -1, widget.canDown),
+        ],
       ),
     );
   }
@@ -2126,9 +2220,6 @@ class _RingPainter extends CustomPainter {
 }
 
 // ───────────────────────── Today-pagina ─────────────────────────
-
-/// Inhoud van de Today-pagina: dagbalk, activiteitskaart en een tip.
-/// Gebruik in today.dart: const TodayActivity()
 class TodayActivity extends StatefulWidget {
   const TodayActivity({super.key});
 
@@ -2232,7 +2323,7 @@ class _TodayActivityState extends State<TodayActivity> {
     final m = await showModalBottomSheet<int>(
       context: context,
       showDragHandle: true,
-      backgroundColor: pal.hero,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       builder: (ctx) => _GoalSheet(pal: pal, minutes: minutes),
     );
     if (m != null) {
@@ -2260,7 +2351,6 @@ class _TodayActivityState extends State<TodayActivity> {
     final running = _active != null && _active!.day == d ? _active : null;
     final tip = context.t.dailyTips[d % context.t.dailyTips.length];
 
-    // Phone-vrije tijd van vandaag: klaar = alles, bezig = verstreken tijd
     final totalSec = minutes * 60;
     int elapsedSec = 0;
     if (done) {
@@ -2466,7 +2556,6 @@ class _TodayActivityState extends State<TodayActivity> {
           ],
         ),
 
-        // Phone-free today
         const SizedBox(height: 14),
         Container(
           width: double.infinity,
@@ -2514,7 +2603,6 @@ class _TodayActivityState extends State<TodayActivity> {
           ),
         ),
 
-        // Tip: een enkele regel
         const SizedBox(height: 18),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,

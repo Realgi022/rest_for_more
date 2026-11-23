@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'focus_history_service.dart';
 import 'notification_service.dart';
 
 class FocusTimerService extends ChangeNotifier {
@@ -144,6 +145,13 @@ class FocusTimerService extends ChangeNotifier {
   }
 
   Future<void> finishTimer() async {
+    if (!hasEnded) {
+      focusHistoryService.record(
+        seconds: selectedDuration.inSeconds,
+        completed: true,
+      );
+    }
+
     _timer?.cancel();
     _endTime = null;
     unawaited(NotificationService.notifyTimerCompleted());
@@ -164,6 +172,17 @@ class FocusTimerService extends ChangeNotifier {
   }
 
   void cancelTimer() {
+    // Vroegtijdig stoppen: alleen opslaan als er minstens een minuut was.
+    if (timerStarted && !hasEnded) {
+      final elapsed = selectedDuration - remaining;
+      if (elapsed.inSeconds >= 60) {
+        focusHistoryService.record(
+          seconds: elapsed.inSeconds,
+          completed: false,
+        );
+      }
+    }
+
     unawaited(NotificationService.cancelTimerCompletion());
     _timer?.cancel();
     _endTime = null;

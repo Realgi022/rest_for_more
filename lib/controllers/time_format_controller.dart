@@ -6,7 +6,7 @@ import '../data/repository/settings_repository.dart';
 final timeFormatController = TimeFormatController();
 
 class TimeFormatController extends ValueNotifier<bool> {
-  TimeFormatController() : super(false);
+  TimeFormatController() : super(true);
 
   Future<void> load() async {
     value = await SettingsRepository.loadUse24HourTime();
