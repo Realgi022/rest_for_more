@@ -1,5 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../models/plan_data.dart';
+
 class PlanRepository {
   static Future<List<String>> loadInterests() async {
     final p = await SharedPreferences.getInstance();
@@ -79,8 +81,7 @@ class PlanRepository {
   static Future<void> complete(int day, {int? minutes}) async {
     final p = await SharedPreferences.getInstance();
 
-    final set = (p.getStringList('plan_completed') ?? []).toSet()
-    ..add('$day');
+    final set = (p.getStringList('plan_completed') ?? []).toSet()..add('$day');
 
     await p.setStringList('plan_completed', set.toList());
 
@@ -107,6 +108,29 @@ class PlanRepository {
   static Future<void> debugNextDay() async {
     final p = await SharedPreferences.getInstance();
     await p.setInt('plan_offset', (p.getInt('plan_offset') ?? 0) + 1);
+  }
+
+  static Future<void> debugSeedProgress(
+    PlanData plan, {
+    int doneDays = 4,
+  }) async {
+    final p = await SharedPreferences.getInstance();
+
+    final n = doneDays < plan.total - 1 ? doneDays : plan.total - 1;
+
+    final start = DateTime.now().subtract(Duration(days: n));
+
+    await p.setString('plan_start', start.toIso8601String());
+    await p.setInt('plan_offset', 0);
+
+    await p.setStringList(
+      'plan_completed',
+      List.generate(n, (i) => '${i + 1}'),
+    );
+
+    for (var d = 1; d <= n; d++) {
+      await p.setInt('plan_done_min_$d', plan.minutesFor(d));
+    }
   }
 
   static Future<void> reset() async {

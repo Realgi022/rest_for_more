@@ -1,10 +1,9 @@
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../models/activity.dart';
 import '../models/moment_session.dart';
 import '../models/plan_day.dart';
 import '../models/plan_data.dart';
 import '../data/repository/plan_repository.dart';
+import '../data/repository/moment_repository.dart';
 
 class PlanService {
   static Future<PlanData> load() async {
@@ -129,52 +128,29 @@ class PlanService {
   }
 
   static Future<void> startMoment(int day, int minutes) async {
-    final p = await SharedPreferences.getInstance();
-    await p.setInt('moment_day', day);
-    await p.setInt('moment_minutes', minutes);
-    await p.setInt('moment_start', DateTime.now().millisecondsSinceEpoch);
-  }
+  await MomentRepository.startMoment(day, minutes);
+}
 
-  static Future<MomentSession?> activeMoment() async {
-    final p = await SharedPreferences.getInstance();
-    final day = p.getInt('moment_day');
-    final minutes = p.getInt('moment_minutes');
-    final start = p.getInt('moment_start');
-    if (day == null || minutes == null || start == null) return null;
-    return MomentSession(
-      day,
-      minutes,
-      DateTime.fromMillisecondsSinceEpoch(start),
-    );
-  }
+static Future<MomentSession?> activeMoment() async {
+  return await MomentRepository.activeMoment();
+}
 
-  static Future<void> clearMoment() async {
-    final p = await SharedPreferences.getInstance();
-    await p.remove('moment_day');
-    await p.remove('moment_minutes');
-    await p.remove('moment_start');
-  }
+static Future<void> clearMoment() async {
+  await MomentRepository.clearMoment();
+}
 
   static Future<void> debugSeedProgress({int doneDays = 4}) async {
-    final plan = await load();
-    final n = doneDays < plan.total - 1 ? doneDays : plan.total - 1;
-    final p = await SharedPreferences.getInstance();
-    await p.setString(
-      'plan_start',
-      DateTime.now().subtract(Duration(days: n)).toIso8601String(),
-    );
-    await p.setInt('plan_offset', 0);
-    await p.setStringList('plan_completed', [
-      for (var d = 1; d <= n; d++) '$d',
-    ]);
-    for (var d = 1; d <= n; d++) {
-      await p.setInt('plan_done_min_$d', plan.minutesFor(d));
-    }
-    await clearMoment();
-  }
+  final plan = await load();
 
-  static Future<void> reset() async {
-    await PlanRepository.reset();
-    await clearMoment();
-  }
+  await PlanRepository.debugSeedProgress(
+    plan,
+    doneDays: doneDays,
+  );
+
+  await MomentRepository.clearMoment();
+}
+static Future<void> reset() async {
+  await PlanRepository.reset();
+  await MomentRepository.clearMoment();
+}
 }
