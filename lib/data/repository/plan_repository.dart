@@ -1,33 +1,27 @@
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'onboarding_repository.dart';
 import '../../models/plan_data.dart';
 
 class PlanRepository {
-  static Future<List<String>> loadInterests() async {
-    final p = await SharedPreferences.getInstance();
-    return p.getStringList('onb_interests') ?? [];
-  }
+static Future<List<String>> loadInterests() async {
+  return OnboardingRepository.loadAnswer('interests');
+}
 
-  static Future<List<String>> loadTime() async {
-    final p = await SharedPreferences.getInstance();
-    return p.getStringList('onb_time') ?? ['Evening'];
-  }
+static Future<List<String>> loadTime() async {
+  return OnboardingRepository.loadTime();
+}
 
-  static Future<List<String>> loadGoal() async {
-    final p = await SharedPreferences.getInstance();
-    return p.getStringList('onb_goal') ?? ['Create more phone-free moments'];
-  }
+static Future<List<String>> loadGoal() async {
+  return OnboardingRepository.loadGoal();
+}
 
-  static Future<List<String>> loadDuration() async {
-    final p = await SharedPreferences.getInstance();
-    return p.getStringList('onb_duration') ?? ['30 minutes'];
-  }
+static Future<List<String>> loadDuration() async {
+  return OnboardingRepository.loadDuration();
+}
 
-  static Future<List<String>> loadLength() async {
-    final p = await SharedPreferences.getInstance();
-    return p.getStringList('onb_length') ?? ['14 days'];
-  }
-
+static Future<List<String>> loadLength() async {
+  return OnboardingRepository.loadLength();
+}
   static Future<String?> loadPlanStart() async {
     final p = await SharedPreferences.getInstance();
     return p.getString('plan_start');
