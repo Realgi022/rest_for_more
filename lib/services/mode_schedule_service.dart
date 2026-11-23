@@ -61,6 +61,7 @@ class ModeScheduleService extends ChangeNotifier {
 
   Future<void> addSchedule({
     required ModeId modeId,
+    String name = '',
     required List<int> weekdays,
     required int startTimeMinutes,
     required int endTimeMinutes,
@@ -68,6 +69,7 @@ class ModeScheduleService extends ChangeNotifier {
     final schedule = ModeSchedule(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       modeId: modeId,
+      name: name,
       weekdays: [...weekdays]..sort(),
       startTimeMinutes: startTimeMinutes,
       endTimeMinutes: endTimeMinutes,

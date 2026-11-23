@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class TimeFormatController extends ValueNotifier<bool> {
-  TimeFormatController() : super(false);
+  TimeFormatController() : super(true);
 
   static const _prefsKey = 'use_24_hour_time';
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
-    value = prefs.getBool(_prefsKey) ?? false;
+    value = prefs.getBool(_prefsKey) ?? true;
   }
 
   Future<void> setUse24HourTime(bool use24HourTime) async {

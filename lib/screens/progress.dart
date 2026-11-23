@@ -1109,8 +1109,6 @@ class _TodayCard extends StatelessWidget {
   }
 }
 
-/// Kendi süreni seç: alarm kurar gibi saat + dakika tekerlekleri.
-/// En az 15 dk, en çok 3 saat; dakikalar 5'er 5'er.
 class _GoalSheet extends StatefulWidget {
   final _Pal pal;
   final int minutes;
@@ -1521,7 +1519,6 @@ class _MomentScreenState extends State<_MomentScreen> {
     return d.isNegative ? Duration.zero : d;
   }
 
-  /// Bij hervatten schuiven we de starttijd op met de pauzeduur.
   Future<void> _shiftStart(Duration by) async {
     final s = _session;
     if (s == null) return;
@@ -1819,9 +1816,6 @@ class _RingPainter extends CustomPainter {
 }
 
 // ───────────────────────── Today-pagina ─────────────────────────
-
-/// Inhoud van de Today-pagina: dagbalk, activiteitskaart en een tip.
-/// Gebruik in today.dart: const TodayActivity()
 class TodayActivity extends StatefulWidget {
   const TodayActivity({super.key});
 
@@ -1945,7 +1939,6 @@ class _TodayActivityState extends State<TodayActivity> {
     final running = _active != null && _active!.day == d ? _active : null;
     final tip = context.t.dailyTips[d % context.t.dailyTips.length];
 
-    // Phone-vrije tijd van vandaag: klaar = alles, bezig = verstreken tijd
     final totalSec = minutes * 60;
     int elapsedSec = 0;
     if (done) {
@@ -2105,7 +2098,6 @@ class _TodayActivityState extends State<TodayActivity> {
           ],
         ),
 
-        // Phone-free today
         const SizedBox(height: 14),
         Container(
           width: double.infinity,
@@ -2141,7 +2133,6 @@ class _TodayActivityState extends State<TodayActivity> {
           ),
         ),
 
-        // Tip: een enkele regel
         const SizedBox(height: 18),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,

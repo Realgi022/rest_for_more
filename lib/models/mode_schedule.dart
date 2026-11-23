@@ -20,6 +20,7 @@ enum ModeId {
 class ModeSchedule {
   final String id;
   final ModeId modeId;
+  final String name;
   final List<int> weekdays;
   final int startTimeMinutes;
   final int endTimeMinutes;
@@ -28,6 +29,7 @@ class ModeSchedule {
   const ModeSchedule({
     required this.id,
     required this.modeId,
+    this.name = '',
     required this.weekdays,
     required this.startTimeMinutes,
     required this.endTimeMinutes,
@@ -45,6 +47,7 @@ class ModeSchedule {
   ModeSchedule copyWith({
     String? id,
     ModeId? modeId,
+    String? name,
     List<int>? weekdays,
     int? startTimeMinutes,
     int? endTimeMinutes,
@@ -53,6 +56,7 @@ class ModeSchedule {
     return ModeSchedule(
       id: id ?? this.id,
       modeId: modeId ?? this.modeId,
+      name: name ?? this.name,
       weekdays: weekdays ?? this.weekdays,
       startTimeMinutes: startTimeMinutes ?? this.startTimeMinutes,
       endTimeMinutes: endTimeMinutes ?? this.endTimeMinutes,
@@ -64,6 +68,7 @@ class ModeSchedule {
     return {
       'id': id,
       'modeId': modeId.value,
+      'name': name,
       'weekdays': weekdays,
       'startTimeMinutes': startTimeMinutes,
       'endTimeMinutes': endTimeMinutes,
@@ -75,6 +80,7 @@ class ModeSchedule {
     return ModeSchedule(
       id: json['id'] as String,
       modeId: ModeId.fromValue(json['modeId'] as String),
+      name: json['name'] as String? ?? '',
       weekdays: (json['weekdays'] as List).cast<int>()..sort(),
       startTimeMinutes: json['startTimeMinutes'] as int,
       endTimeMinutes: json['endTimeMinutes'] as int,
