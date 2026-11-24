@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../controllers/app_language.dart';
 
 enum AppLanguage {
   english('en', '🇬🇧 English'),
@@ -18,31 +18,10 @@ enum AppLanguage {
   }
 }
 
-class AppLanguageController extends ValueNotifier<AppLanguage> {
-  AppLanguageController() : super(AppLanguage.english);
-
-  static const _prefsKey = 'app_language';
-
-  Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    value = AppLanguage.fromCode(prefs.getString(_prefsKey));
-  }
-
-  Future<void> setLanguage(AppLanguage language) async {
-    if (value == language) return;
-
-    value = language;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefsKey, language.code);
-  }
-}
-
-final appLanguageController = AppLanguageController();
-
-class AppLanguageScope extends InheritedNotifier<AppLanguageController> {
+class AppLanguageScope extends InheritedNotifier<ValueNotifier<AppLanguage>> {
   const AppLanguageScope({
     super.key,
-    required AppLanguageController controller,
+    required ValueNotifier<AppLanguage> controller,
     required super.child,
   }) : super(notifier: controller);
 
