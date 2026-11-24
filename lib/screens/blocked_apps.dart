@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rest_for_more/widgets/tutorial_block.dart';
 
 import '../localization/app_language.dart';
 import '../services/app_blocker_service.dart';
@@ -86,6 +87,7 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
       child: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(AppSpacing.gutter),
           children: [
             Row(
@@ -121,7 +123,9 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
 
               const SizedBox(height: 16),
 
-              if (!_loading && !_accessibilityEnabled) const _TutorialBlock(),
+              // if (!_loading && !_accessibilityEnabled) const _TutorialBlock(),
+              if (!_loading && _error == null && !_accessibilityEnabled)
+                const TutorialBlock(),
 
               if (_accessibilityEnabled) ...[
                 Text(
@@ -281,34 +285,6 @@ class _InfoCard extends StatelessWidget {
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TutorialBlock extends StatelessWidget {
-  const _TutorialBlock();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.secondary.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Tutorial', style: theme.textTheme.headlineMedium?.copyWith(fontSize: 22)),
-          const SizedBox(height: 8),
-          Text('This is a simple tutorial for using the app.', style: theme.textTheme.bodySmall),
         ],
       ),
     );
