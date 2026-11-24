@@ -305,7 +305,11 @@ class _TutorialBlock extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [Text('hello test')],
+        children: [
+          Text('Tutorial', style: theme.textTheme.headlineMedium?.copyWith(fontSize: 22)),
+          const SizedBox(height: 8),
+          Text('This is a simple tutorial for using the app.', style: theme.textTheme.bodySmall),
+        ],
       ),
     );
   }
