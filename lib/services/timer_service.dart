@@ -94,8 +94,6 @@ class FocusTimerService extends ChangeNotifier {
     isRunning = true;
     isPaused = false;
 
-    NotificationService.showTimerNotification(remaining);
-
     _timer?.cancel();
 
     _timer = Timer.periodic(const Duration(milliseconds: 50), (_) {
@@ -135,8 +133,6 @@ class FocusTimerService extends ChangeNotifier {
     isRunning = false;
     isPaused = true;
 
-    NotificationService.showPausedTimerNotification(remaining);
-
     notifyListeners();
   }
 
@@ -159,8 +155,6 @@ class FocusTimerService extends ChangeNotifier {
     _timer?.cancel();
     _endTime = null;
     unawaited(NotificationService.notifyTimerCompleted());
-
-    NotificationService.cancelTimerNotification();
 
     remaining = Duration.zero;
 
@@ -192,8 +186,6 @@ class FocusTimerService extends ChangeNotifier {
     unawaited(NotificationService.cancelTimerCompletion());
     _timer?.cancel();
     _endTime = null;
-
-    NotificationService.cancelTimerNotification();
 
     remaining = Duration.zero;
 

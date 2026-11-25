@@ -1,3 +1,5 @@
+import 'mode_task.dart';
+
 enum ModeId {
   focus('focus', 'Focus'),
   reading('reading', 'Reading'),
@@ -27,6 +29,7 @@ class ModeSchedule {
   final int startTimeMinutes;
   final int endTimeMinutes;
   final bool enabled;
+  final List<ModeTask> tasks;
 
   const ModeSchedule({
     required this.id,
@@ -38,6 +41,7 @@ class ModeSchedule {
     required this.startTimeMinutes,
     required this.endTimeMinutes,
     required this.enabled,
+    this.tasks = const [],
   });
 
   Duration get duration {
@@ -58,6 +62,7 @@ class ModeSchedule {
     int? startTimeMinutes,
     int? endTimeMinutes,
     bool? enabled,
+    List<ModeTask>? tasks,
   }) {
     return ModeSchedule(
       id: id ?? this.id,
@@ -69,6 +74,7 @@ class ModeSchedule {
       startTimeMinutes: startTimeMinutes ?? this.startTimeMinutes,
       endTimeMinutes: endTimeMinutes ?? this.endTimeMinutes,
       enabled: enabled ?? this.enabled,
+      tasks: tasks ?? this.tasks,
     );
   }
 
@@ -83,20 +89,34 @@ class ModeSchedule {
       'startTimeMinutes': startTimeMinutes,
       'endTimeMinutes': endTimeMinutes,
       'enabled': enabled,
+      'tasks': tasks.map((task) => task.toJson()).toList(),
     };
   }
 
   factory ModeSchedule.fromJson(Map<String, Object?> json) {
+    final modeId = ModeId.fromValue(json['modeId'] as String);
+    final encodedTasks = json['tasks'] as List?;
+    final tasks = encodedTasks == null
+        ? <ModeTask>[]
+        : encodedTasks
+              .map(
+                (task) =>
+                    ModeTask.fromJson(Map<String, Object?>.from(task as Map)),
+              )
+              .toList();
+
     return ModeSchedule(
       id: json['id'] as String,
       name: (json['name'] as String?) ?? 'Schedule',
-      modeId: ModeId.fromValue(json['modeId'] as String),
+      modeId: modeId,
       dates: (json['dates'] as List?)?.cast<String>() ?? const [],
       repeatWeekly: json['repeatWeekly'] as bool? ?? true,
-      weekdays: (json['weekdays'] as List).cast<int>()..sort(),
+      weekdays: (List<int>.from((json['weekdays'] as List).cast<int>())
+        ..sort()),
       startTimeMinutes: json['startTimeMinutes'] as int,
       endTimeMinutes: json['endTimeMinutes'] as int,
       enabled: json['enabled'] as bool? ?? true,
+      tasks: tasks,
     );
   }
 

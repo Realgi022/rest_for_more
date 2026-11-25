@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rest_for_more/screens/modes/mode_moment_detail.dart'
-    show ModeScheduleSummaryTile, formatEndTime, formatRemaining;
+    show
+        ModeScheduleChecklist,
+        ModeScheduleSummaryTile,
+        formatEndTime,
+        formatRemaining;
 import 'package:rest_for_more/services/timer_service.dart';
 
 import '../localization/app_language.dart';
@@ -108,24 +112,53 @@ class TodayScreen extends StatelessWidget {
   }
 }
 
-class _TodayScheduleTile extends StatelessWidget {
+class _TodayScheduleTile extends StatefulWidget {
   final ModeSchedule schedule;
 
   const _TodayScheduleTile({required this.schedule});
 
-  void _openDetails(BuildContext context) {
-    showModalBottomSheet<void>(
+  @override
+  State<_TodayScheduleTile> createState() => _TodayScheduleTileState();
+}
+
+class _TodayScheduleTileState extends State<_TodayScheduleTile> {
+  Listenable? _router;
+  bool _sheetOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _router = GoRouter.of(context).routerDelegate;
+    _router!.addListener(_closeOverviewOnRouteChange);
+  }
+
+  @override
+  void dispose() {
+    _router?.removeListener(_closeOverviewOnRouteChange);
+    super.dispose();
+  }
+
+  void _closeOverviewOnRouteChange() {
+    if (!_sheetOpen || !mounted) return;
+    _sheetOpen = false;
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _openDetails(BuildContext context) async {
+    _sheetOpen = true;
+    await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) => _TodayScheduleDetails(schedule: schedule),
+      builder: (_) => _TodayScheduleDetails(schedule: widget.schedule),
     );
+    _sheetOpen = false;
   }
 
   @override
   Widget build(BuildContext context) {
     return ModeScheduleSummaryTile(
-      schedule: schedule,
+      schedule: widget.schedule,
       onTap: () => _openDetails(context),
     );
   }
@@ -151,8 +184,8 @@ class _ActiveFocusCard extends StatelessWidget {
         final status = ended
             ? context.t.timerEnded
             : timer.isPaused
-                ? 'Paused'
-                : 'Ends at ${formatEndTime(DateTime.now().add(timer.remaining))}';
+            ? 'Paused'
+            : 'Ends at ${formatEndTime(DateTime.now().add(timer.remaining))}';
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
@@ -186,22 +219,25 @@ class _ActiveFocusCard extends StatelessWidget {
                         children: [
                           Text(
                             context.t.focus,
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(color: muted),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: muted,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             ended
                                 ? context.t.done
                                 : formatRemaining(timer.remaining),
-                            style: theme.textTheme.headlineMedium
-                                ?.copyWith(fontSize: 28),
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              fontSize: 28,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             status,
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: muted),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: muted,
+                            ),
                           ),
                         ],
                       ),
@@ -258,6 +294,23 @@ class _TodayScheduleDetails extends StatelessWidget {
               ),
             ),
             const Divider(),
+            const SizedBox(height: 12),
+            ModeScheduleChecklist(
+              schedule: schedule,
+              occurrenceKey:
+                  modeScheduleService.activeOccurrenceKey(
+                    schedule,
+                    DateTime.now(),
+                  ) ??
+                  modeScheduleService.occurrenceKeyForDate(
+                    schedule,
+                    DateTime.now(),
+                  ),
+              interactive: modeScheduleService.isActive(
+                schedule,
+                DateTime.now(),
+              ),
+            ),
             const SizedBox(height: 12),
             Text(
               schedule.repeatWeekly

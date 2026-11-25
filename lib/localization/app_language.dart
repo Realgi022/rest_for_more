@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../controllers/app_language.dart';
 
 enum AppLanguage {
@@ -390,6 +391,24 @@ class AppStrings {
   String editMode(String mode) => _nl ? '$mode bewerken' : 'Edit $mode';
   String schedulesCount(int count, int maximum) =>
       _nl ? '$count/$maximum planningen' : '$count/$maximum schedules';
+  String get modeTasks => _nl ? 'Taken voor deze modus' : 'Mode tasks';
+  String get addTask => _nl ? 'Taak toevoegen' : 'Add task';
+  String get editTask => _nl ? 'Taak bewerken' : 'Edit task';
+  String get removeTask => _nl ? 'Taak verwijderen' : 'Remove task';
+  String get noTasksYet =>
+      _nl ? 'Nog geen taken toegevoegd.' : 'No tasks added yet.';
+  String get addAtLeastOneTask =>
+      _nl ? 'Voeg minimaal één taak toe.' : 'Add at least one task.';
+  String get taskName => _nl ? 'Naam van de taak' : 'Task name';
+  String get taskDuration =>
+      _nl ? 'Geschatte duur van de taak' : 'Estimated task duration';
+  String estimatedMinutes(int minutes) =>
+      _nl ? 'Schatting: $minutes minuten' : 'Estimate: $minutes minutes';
+  String get saveTask => _nl ? 'Taak opslaan' : 'Save task';
+  String get scheduleHistory =>
+      _nl ? 'Planningsgeschiedenis' : 'Schedule history';
+  String occurrenceDate(String date) =>
+      _nl ? 'Uitvoering $date' : 'Occurrence $date';
 
   // All Steps translations from the previous screen update.
   String get completedStepsTitle =>
