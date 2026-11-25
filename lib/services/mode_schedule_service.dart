@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/mode_schedule.dart';
+import '../data/repository/mode_schedule_repository.dart';  
 
 final modeScheduleService = ModeScheduleService();
 
@@ -15,7 +14,6 @@ typedef ModeScheduleActivator = FutureOr<void> Function(
 
 class ModeScheduleService extends ChangeNotifier {
   static const maxSchedulesPerMode = 10;
-  static const _schedulesKey = 'mode_schedules';
   static const _runnerInterval = Duration(seconds: 30);
 
   final List<ModeSchedule> _schedules = [];
@@ -49,16 +47,13 @@ class ModeScheduleService extends ChangeNotifier {
     _runner = null;
   }
 
-  Future<void> load() async {
-    final preferences = await SharedPreferences.getInstance();
-    final encodedSchedules = preferences.getStringList(_schedulesKey) ?? [];
+Future<void> load() async {
+  _schedules
+    ..clear()
+    ..addAll(await ModeScheduleRepository.loadSchedules());
 
-    _schedules
-      ..clear()
-      ..addAll(_decodeSchedules(encodedSchedules));
-
-    notifyListeners();
-  }
+  notifyListeners();
+}
 
   Future<bool> addSchedule({
     required ModeId modeId,
@@ -112,15 +107,11 @@ class ModeScheduleService extends ChangeNotifier {
   }
 
   Future<void> _save() async {
-    final preferences = await SharedPreferences.getInstance();
-    final encodedSchedules = _schedules.map((schedule) {
-      return jsonEncode(schedule.toJson());
-    }).toList();
+  await ModeScheduleRepository.saveSchedules(_schedules);
 
-    await preferences.setStringList(_schedulesKey, encodedSchedules);
-    notifyListeners();
-    _checkSchedules();
-  }
+  notifyListeners();
+  _checkSchedules();
+}
 
   Future<void> _checkSchedules() async {
     final now = DateTime.now();
@@ -197,24 +188,6 @@ class ModeScheduleService extends ChangeNotifier {
       minutesAfterMidnight ~/ 60,
       minutesAfterMidnight % 60,
     );
-  }
-
-  List<ModeSchedule> _decodeSchedules(List<String> encodedSchedules) {
-    final schedules = <ModeSchedule>[];
-
-    for (final encodedSchedule in encodedSchedules) {
-      try {
-        schedules.add(
-          ModeSchedule.fromJson(
-            Map<String, Object?>.from(jsonDecode(encodedSchedule) as Map),
-          ),
-        );
-      } catch (_) {
-        // Ignore stale schedule records from older local builds.
-      }
-    }
-
-    return schedules;
   }
 
   List<ModeSchedule> schedulesForDay(DateTime date) {

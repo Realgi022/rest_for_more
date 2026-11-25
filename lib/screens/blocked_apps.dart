@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rest_for_more/widgets/tutorial_block.dart';
 
 import '../localization/app_language.dart';
 import '../services/app_blocker_service.dart';
@@ -86,6 +87,7 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
       child: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(AppSpacing.gutter),
           children: [
             Row(
@@ -118,56 +120,67 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
                 onEnable: _openAccessibilitySettings,
                 onRefresh: _load,
               ),
-              const SizedBox(height: 16),
-              Text(
-                t.appsBlocked(_blockedPackages.length),
-                style: theme.textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              if (_loading)
-                const Padding(
-                  padding: EdgeInsets.only(top: 32),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (_error != null)
-                _InfoCard(
-                  icon: Icons.error_outline,
-                  title: t.somethingWentWrong,
-                  message: _error!,
-                )
-              else if (_apps.isEmpty)
-                _InfoCard(
-                  icon: Icons.apps_outlined,
-                  title: t.noAppsFound,
-                  message: t.refreshAppsMessage,
-                )
-              else
-                ..._apps.map((app) {
-                  final blocked = _blockedPackages.contains(app.packageName);
 
-                  return Card(
-                    elevation: 0,
-                    color: appCardColor(context),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: SwitchListTile(
-                      value: blocked,
-                      onChanged: (value) => _toggleApp(app.packageName, value),
-                      title: Text(app.label),
-                      subtitle: Text(app.packageName),
-                      secondary: CircleAvatar(
-                        backgroundColor: theme.colorScheme.primary.withValues(
-                          alpha: 0.18,
-                        ),
-                        child: Icon(
-                          blocked ? Icons.lock : Icons.lock_open_outlined,
-                          color: theme.colorScheme.primary,
+              const SizedBox(height: 16),
+
+              // if (!_loading && !_accessibilityEnabled) const _TutorialBlock(),
+              if (!_loading && _error == null && !_accessibilityEnabled)
+                const TutorialBlock(),
+
+              if (_accessibilityEnabled) ...[
+                Text(
+                  t.appsBlocked(_blockedPackages.length),
+                  style: theme.textTheme.titleMedium,
+                ),
+
+                const SizedBox(height: 8),
+
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 32),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_error != null)
+                  _InfoCard(
+                    icon: Icons.error_outline,
+                    title: t.somethingWentWrong,
+                    message: _error!,
+                  )
+                else if (_apps.isEmpty)
+                  _InfoCard(
+                    icon: Icons.apps_outlined,
+                    title: t.noAppsFound,
+                    message: t.refreshAppsMessage,
+                  )
+                else
+                  ..._apps.map((app) {
+                    final blocked = _blockedPackages.contains(app.packageName);
+
+                    return Card(
+                      elevation: 0,
+                      color: appCardColor(context),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: SwitchListTile(
+                        value: blocked,
+                        onChanged: (value) =>
+                            _toggleApp(app.packageName, value),
+                        title: Text(app.label),
+                        subtitle: Text(app.packageName),
+                        secondary: CircleAvatar(
+                          backgroundColor: theme.colorScheme.primary.withValues(
+                            alpha: 0.18,
+                          ),
+                          child: Icon(
+                            blocked ? Icons.lock : Icons.lock_open_outlined,
+                            color: theme.colorScheme.primary,
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                }),
+                    );
+                  }),
+              ],
             ],
           ],
         ),
@@ -263,7 +276,10 @@ class _InfoCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: theme.textTheme.headlineMedium?.copyWith(fontSize: 22)),
+                Text(
+                  title,
+                  style: theme.textTheme.headlineMedium?.copyWith(fontSize: 22),
+                ),
                 const SizedBox(height: 4),
                 Text(message, style: theme.textTheme.bodySmall),
               ],

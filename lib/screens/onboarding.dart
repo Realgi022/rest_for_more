@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../localization/app_language.dart';
 import '../services/plan_service.dart';
+import '../data/repository/onboarding_repository.dart';
 
 const _bg = Color(0xFFFAF8F4);
 const _brown = Color(0xFF7A5A40);
@@ -88,8 +88,8 @@ class OnboardingFlow extends StatefulWidget {
   final void Function(Map<String, List<String>> answers) onFinished;
   const OnboardingFlow({super.key, required this.onFinished});
 
-  static Future<bool> isDone() async =>
-      (await SharedPreferences.getInstance()).getBool('onboarded') ?? false;
+static Future<bool> isDone() async =>
+    OnboardingRepository.isDone();
 
   @override
   State<OnboardingFlow> createState() => _OnboardingFlowState();
@@ -118,21 +118,23 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     });
   }
 
-  Future<void> _finish() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (_sel('length').contains('Custom')) {
-      _answers['length'] = {'$_customDays days'};
-    }
-    final result = <String, List<String>>{};
-    for (final e in _answers.entries) {
-      result[e.key] = e.value.toList();
-      await prefs.setStringList('onb_${e.key}', result[e.key]!);
-    }
-    await PlanService.reset();
-    await prefs.setBool('onboarded', true);
-    if (mounted) widget.onFinished(result);
+Future<void> _finish() async {
+  if (_sel('length').contains('Custom')) {
+    _answers['length'] = {'$_customDays days'};
   }
 
+  final result = <String, List<String>>{};
+
+  for (final e in _answers.entries) {
+    result[e.key] = e.value.toList();
+  }
+
+  await OnboardingRepository.saveAnswers(result);
+  await PlanService.reset();
+  await OnboardingRepository.setDone(true);
+
+  if (mounted) widget.onFinished(result);
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(

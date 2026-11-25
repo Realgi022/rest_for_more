@@ -3,11 +3,12 @@ import 'package:go_router/go_router.dart';
 
 import '../localization/app_language.dart';
 import '../services/notification_service.dart';
-import '../services/time_format_controller.dart';
+import '../controllers/time_format_controller.dart';
+import '../controllers/app_language.dart';
 import '../theme/app_card.dart';
 import '../theme/app_spacing.dart';
-import '../theme/theme_controller.dart';
-import '../services/week_start_controller.dart';
+import '../controllers/theme_controller.dart';
+import '../controllers/week_start_controller.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
